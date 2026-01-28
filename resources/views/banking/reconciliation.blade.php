@@ -1,0 +1,63 @@
+<x-app-layout>
+    <x-erp.page title="Bank Reconciliation" subtitle="Match bank statements with system transactions.">
+        <x-slot name="actions">
+            <x-erp.action-button variant="primary">New Reconciliation</x-erp.action-button>
+            <x-erp.action-button>Export</x-erp.action-button>
+            <x-erp.action-button>Print</x-erp.action-button>
+        </x-slot>
+
+        <x-erp.section>
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <div>
+                    <label class="text-xs text-white/70">Bank account</label>
+                    <input type="text" placeholder="Select account" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                </div>
+                <div>
+                    <label class="text-xs text-white/70">Statement date</label>
+                    <input type="date" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                </div>
+                <div>
+                    <label class="text-xs text-white/70">Statement balance</label>
+                    <input type="number" placeholder="0.00" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                </div>
+                <div class="flex items-end">
+                    <x-erp.action-button variant="muted" class="w-full justify-center">Load Transactions</x-erp.action-button>
+                </div>
+            </div>
+        </x-erp.section>
+
+        <x-erp.section>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
+                    <p class="text-xs text-white/70">Cleared transactions</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
+                </div>
+                <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
+                    <p class="text-xs text-white/70">Uncleared transactions</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
+                </div>
+                <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
+                    <p class="text-xs text-white/70">Difference</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
+                </div>
+            </div>
+            <div class="mt-6 overflow-x-auto">
+                <table class="min-w-full text-sm text-white/80">
+                    <thead class="text-xs uppercase text-white/50 border-b border-white/10">
+                        <tr>
+                            <th class="py-3 text-left">Date</th>
+                            <th class="py-3 text-left">Reference</th>
+                            <th class="py-3 text-right">Amount</th>
+                            <th class="py-3 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="py-4 text-white/50" colspan="4">No transactions loaded yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </x-erp.section>
+    </x-erp.page>
+</x-app-layout>
