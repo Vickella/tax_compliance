@@ -13,8 +13,6 @@ class Item extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'cost_price' => 'decimal:2',
-        'selling_price' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

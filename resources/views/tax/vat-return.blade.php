@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-erp.page title="VAT Return" subtitle="Prepare VAT 7 / VAT 7A schedules with input and output tax. Current VAT rate: {{ number_format(($vatRate ?? config('tax.vat_rate')) * 100, 1) }}%.">
+    <x-erp.page title="VAT Return" subtitle="Prepare VAT 7 / VAT 7A schedules with input and output tax.">
         <x-slot name="actions">
             <x-erp.action-button variant="primary">Generate Return</x-erp.action-button>
             <x-erp.action-button>Export</x-erp.action-button>

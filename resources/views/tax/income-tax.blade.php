@@ -1,5 +1,5 @@
 <x-app-layout>
-    <x-erp.page title="Income Tax Computation" subtitle="Annual income tax reconciliation and ITF 12B projections. Effective rate {{ number_format(($incomeTaxRate ?? config('tax.income_tax_rate')) * 100, 2) }}%.">
+    <x-erp.page title="Income Tax Computation" subtitle="Annual income tax reconciliation and ITF 12B projections.">
         <x-slot name="actions">
             <x-erp.action-button variant="primary">Compute Tax</x-erp.action-button>
             <x-erp.action-button>Export</x-erp.action-button>
@@ -11,14 +11,6 @@
                 <div class="lg:col-span-4">
                     <label class="text-xs text-white/70">Tax year</label>
                     <input type="text" placeholder="2026" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
-                </div>
-                <div class="lg:col-span-4">
-                    <label class="text-xs text-white/70">Taxable income</label>
-                    <input type="number" step="0.01" value="{{ $taxableIncome ?? 0 }}" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
-                </div>
-                <div class="lg:col-span-4">
-                    <label class="text-xs text-white/70">Non-deductible expenses (add back)</label>
-                    <input type="number" step="0.01" value="{{ $nonDeductible ?? 0 }}" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
                 </div>
                 <div class="lg:col-span-4">
                     <label class="text-xs text-white/70">Basis</label>
@@ -37,11 +29,11 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
                     <p class="text-xs text-white/70">Projected taxable income</p>
-                    <p class="text-lg font-semibold text-white">ZIG {{ number_format($result['adjusted_income'] ?? 0, 2) }}</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
                 </div>
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
                     <p class="text-xs text-white/70">Projected income tax</p>
-                    <p class="text-lg font-semibold text-white">ZIG {{ number_format($result['income_tax'] ?? 0, 2) }}</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
                 </div>
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
                     <p class="text-xs text-white/70">QPD paid to date</p>

@@ -9,14 +9,14 @@
         </x-slot>
 
         <x-erp.section>
-            <form method="GET" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div class="lg:col-span-4">
                     <label class="text-xs text-white/70">Customer</label>
-                    <input type="text" name="customer" value="{{ request('customer') }}" placeholder="Search customer" class="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 text-white placeholder-white/40 px-4 py-2.5" />
+                    <input type="text" placeholder="Search customer" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/40" />
                 </div>
                 <div class="lg:col-span-3">
                     <label class="text-xs text-white/70">Invoice status</label>
-                    <select class="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 text-white px-4 py-2.5">
+                    <select class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white">
                         <option>All</option>
                         <option>Draft</option>
                         <option>Submitted</option>
@@ -26,14 +26,14 @@
                 <div class="lg:col-span-3">
                     <label class="text-xs text-white/70">Posting date range</label>
                     <div class="mt-2 flex gap-2">
-                        <input type="date" class="w-full rounded-2xl bg-white/10 border border-white/10 text-white px-3 py-2.5" />
-                        <input type="date" class="w-full rounded-2xl bg-white/10 border border-white/10 text-white px-3 py-2.5" />
+                        <input type="date" class="w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                        <input type="date" class="w-full rounded-xl bg-white/10 border border-white/10 text-white" />
                     </div>
                 </div>
                 <div class="lg:col-span-2 flex items-end">
-                    <x-erp.action-button variant="muted" class="w-full justify-center" type="submit">Filter</x-erp.action-button>
+                    <x-erp.action-button variant="muted" class="w-full justify-center">Filter</x-erp.action-button>
                 </div>
-            </form>
+            </div>
         </x-erp.section>
 
         <x-erp.section>
@@ -58,26 +58,20 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($invoices as $invoice)
-                            <tr class="border-b border-white/5">
-                                <td class="py-4">{{ $invoice->invoice_no }}</td>
-                                <td class="py-4">{{ $invoice->customer?->name }}</td>
-                                <td class="py-4">{{ optional($invoice->posting_date)->format('Y-m-d') }}</td>
-                                <td class="py-4"><span class="rounded-full bg-emerald-500/20 text-emerald-200 px-2 py-1 text-xs">{{ $invoice->status }}</span></td>
-                                <td class="py-4">{{ $invoice->vat_category }}</td>
-                                <td class="py-4 text-right">{{ $invoice->currency }} {{ number_format($invoice->total, 2) }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td class="py-4 text-white/50" colspan="6">No invoices found.</td>
-                            </tr>
-                        @endforelse
+                        <tr class="border-b border-white/5">
+                            <td class="py-4">SI-00001</td>
+                            <td class="py-4">Bluewave Retailers</td>
+                            <td class="py-4">2026-01-15</td>
+                            <td class="py-4"><span class="rounded-full bg-emerald-500/20 text-emerald-200 px-2 py-1 text-xs">Submitted</span></td>
+                            <td class="py-4">VAT_STD</td>
+                            <td class="py-4 text-right">ZIG 12,450.00</td>
+                        </tr>
+                        <tr>
+                            <td class="py-4 text-white/50" colspan="6">No more invoices. Create a new sales invoice to begin.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-            @if(isset($invoices))
-                <div class="mt-4">{{ $invoices->links() }}</div>
-            @endif
         </x-erp.section>
 
         <x-modal name="cancel-sales" maxWidth="lg">

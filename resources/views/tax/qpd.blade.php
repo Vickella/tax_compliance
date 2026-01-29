@@ -29,7 +29,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
                     <p class="text-xs text-white/70">Estimated annual tax</p>
-                    <p class="text-lg font-semibold text-white">ZIG {{ number_format($estimatedAnnualTax ?? 0, 2) }}</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
                 </div>
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
                     <p class="text-xs text-white/70">Paid to date</p>
@@ -37,7 +37,7 @@
                 </div>
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
                     <p class="text-xs text-white/70">Next installment</p>
-                    <p class="text-lg font-semibold text-white">ZIG {{ number_format($schedule[0]['amount_due'] ?? 0, 2) }}</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
                 </div>
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
                     <p class="text-xs text-white/70">Variance</p>
@@ -56,19 +56,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($schedule ?? [] as $line)
-                            <tr class="border-b border-white/5">
-                                <td class="py-4">Installment {{ $line['installment_no'] }}</td>
-                                <td class="py-4 text-right">{{ number_format($line['rate_this_quarter'] * 100, 0) }}%</td>
-                                <td class="py-4 text-right">ZIG {{ number_format($line['amount_due'], 2) }}</td>
-                                <td class="py-4 text-right">ZIG {{ number_format($line['amount_paid'], 2) }}</td>
-                                <td class="py-4">--</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td class="py-4 text-white/50" colspan="5">No QPD schedule generated yet.</td>
-                            </tr>
-                        @endforelse
+                        <tr>
+                            <td class="py-4 text-white/50" colspan="5">No QPD schedule generated yet.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
