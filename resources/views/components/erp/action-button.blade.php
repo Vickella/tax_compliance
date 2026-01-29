@@ -1,6 +1,7 @@
 @props(['variant' => 'ghost'])
 
 @php
+    $base = 'inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold transition border shadow-sm';
     $base = 'inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition border';
     $variants = [
         'primary' => 'bg-indigo-500/80 hover:bg-indigo-500 text-white border-indigo-300/40',
@@ -11,6 +12,7 @@
     $classes = $variants[$variant] ?? $variants['ghost'];
 @endphp
 
+<button {{ $attributes->merge(['class' => $base.' '.$classes, 'type' => 'button']) }}>
 <button {{ $attributes->merge(['class' => $base.' '.$classes]) }}>
     {{ $slot }}
 </button>

@@ -9,6 +9,14 @@
         </x-slot>
 
         <x-erp.section>
+            <form method="GET" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div class="lg:col-span-4">
+                    <label class="text-xs text-white/70">Supplier</label>
+                    <input type="text" name="supplier" value="{{ request('supplier') }}" placeholder="Search supplier" class="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 text-white px-4 py-2.5" />
+                </div>
+                <div class="lg:col-span-3">
+                    <label class="text-xs text-white/70">Status</label>
+                    <select class="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 text-white px-4 py-2.5">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div class="lg:col-span-4">
                     <label class="text-xs text-white/70">Supplier</label>
@@ -26,6 +34,14 @@
                 <div class="lg:col-span-3">
                     <label class="text-xs text-white/70">Posting date range</label>
                     <div class="mt-2 flex gap-2">
+                        <input type="date" class="w-full rounded-2xl bg-white/10 border border-white/10 text-white px-3 py-2.5" />
+                        <input type="date" class="w-full rounded-2xl bg-white/10 border border-white/10 text-white px-3 py-2.5" />
+                    </div>
+                </div>
+                <div class="lg:col-span-2 flex items-end">
+                    <x-erp.action-button variant="muted" class="w-full justify-center" type="submit">Filter</x-erp.action-button>
+                </div>
+            </form>
                         <input type="date" class="w-full rounded-xl bg-white/10 border border-white/10 text-white" />
                         <input type="date" class="w-full rounded-xl bg-white/10 border border-white/10 text-white" />
                     </div>
@@ -58,6 +74,26 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @forelse($invoices as $invoice)
+                            <tr class="border-b border-white/5">
+                                <td class="py-4">{{ $invoice->invoice_no }}</td>
+                                <td class="py-4">{{ $invoice->supplier?->name }}</td>
+                                <td class="py-4">{{ $invoice->supplier_invoice_no }}</td>
+                                <td class="py-4">{{ optional($invoice->posting_date)->format('Y-m-d') }}</td>
+                                <td class="py-4"><span class="rounded-full bg-amber-500/20 text-amber-200 px-2 py-1 text-xs">{{ $invoice->status }}</span></td>
+                                <td class="py-4 text-right">{{ $invoice->currency }} {{ number_format($invoice->total, 2) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td class="py-4 text-white/50" colspan="6">No invoices found.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if(isset($invoices))
+                <div class="mt-4">{{ $invoices->links() }}</div>
+            @endif
                         <tr class="border-b border-white/5">
                             <td class="py-4">PI-00012</td>
                             <td class="py-4">Kudzai Wholesalers</td>
