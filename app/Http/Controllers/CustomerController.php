@@ -41,4 +41,7 @@ class CustomerController extends Controller
         return redirect()->route('crm.customers.index')
             ->with('status', "Customer {$customer->name} created.");
     }
+        return view('crm.customers.index');
+    }
+
 }

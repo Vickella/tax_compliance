@@ -2,6 +2,7 @@
     <x-erp.page title="Suppliers" subtitle="Manage suppliers, VAT registration, and withholding tax flags.">
         <x-slot name="actions">
             <x-erp.action-link href="{{ route('crm.suppliers.create') }}" variant="primary">Create Supplier</x-erp.action-link>
+            <x-erp.action-button variant="primary">Create Supplier</x-erp.action-button>
             <x-erp.action-button x-on:click="$dispatch('open-modal', 'import-suppliers')">Import</x-erp.action-button>
             <x-erp.action-button>Export</x-erp.action-button>
             <x-erp.action-button variant="danger" x-on:click="$dispatch('open-modal', 'delete-supplier')">Delete</x-erp.action-button>
@@ -16,6 +17,14 @@
                 <div class="lg:col-span-3">
                     <label class="text-xs text-white/70">Status</label>
                     <select class="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 text-white px-4 py-2.5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div class="lg:col-span-4">
+                    <label class="text-xs text-white/70">Search</label>
+                    <input type="text" placeholder="Supplier name or code" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                </div>
+                <div class="lg:col-span-3">
+                    <label class="text-xs text-white/70">Status</label>
+                    <select class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white">
                         <option>All</option>
                         <option>Active</option>
                         <option>Inactive</option>
@@ -24,6 +33,7 @@
                 <div class="lg:col-span-3">
                     <label class="text-xs text-white/70">Withholding Tax</label>
                     <select class="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 text-white px-4 py-2.5">
+                    <select class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white">
                         <option>All</option>
                         <option>Enabled</option>
                         <option>Disabled</option>
@@ -33,6 +43,9 @@
                     <x-erp.action-button variant="muted" class="w-full justify-center" type="submit">Filter</x-erp.action-button>
                 </div>
             </form>
+                    <x-erp.action-button variant="muted" class="w-full justify-center">Filter</x-erp.action-button>
+                </div>
+            </div>
         </x-erp.section>
 
         <x-erp.section>
@@ -67,6 +80,20 @@
                 </table>
             </div>
             <div class="mt-4">{{ $suppliers->links() }}</div>
+                        <tr class="border-b border-white/5">
+                            <td class="py-4">SUP-004</td>
+                            <td class="py-4">Kudzai Wholesalers</td>
+                            <td class="py-4">TIN-777</td>
+                            <td class="py-4">263-778899-2</td>
+                            <td class="py-4 text-right">Yes</td>
+                            <td class="py-4 text-right"><span class="rounded-full bg-emerald-500/20 text-emerald-200 px-2 py-1 text-xs">Active</span></td>
+                        </tr>
+                        <tr>
+                            <td class="py-4 text-white/50" colspan="6">No more suppliers.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </x-erp.section>
 
         <x-modal name="delete-supplier" maxWidth="lg">

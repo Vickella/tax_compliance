@@ -39,3 +39,7 @@ class SupplierController extends Controller
             ->with('status', "Supplier {$supplier->name} created.");
     }
 }
+        return view('crm.suppliers.index');
+    }
+
+}

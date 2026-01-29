@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 
 class PurchaseInvoiceController extends Controller
 {
@@ -29,6 +30,7 @@ class PurchaseInvoiceController extends Controller
         return view('purchases.invoices.index', [
             'invoices' => $invoices,
         ]);
+        return view('purchases.invoices.index');
     }
 
     public function create(Request $request)
@@ -101,4 +103,8 @@ class PurchaseInvoiceController extends Controller
                 ->with('status', "Purchase invoice {$invoice->invoice_no} created.");
         });
     }
+}
+        return view('purchases.invoices.create');
+    }
+
 }

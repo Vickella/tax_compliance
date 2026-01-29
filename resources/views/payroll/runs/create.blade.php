@@ -132,6 +132,18 @@
                 <div class="rounded-2xl bg-black/10 border border-white/10 p-4">
                     <p class="text-xs text-white/60">AIDS Levy (3%)</p>
                     <p class="text-lg font-semibold text-white">ZIG {{ number_format($summary['aids_levy'] ?? 0, 2) }}</p>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
+                    <p class="text-xs text-white/70">Total Gross</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
+                </div>
+                <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
+                    <p class="text-xs text-white/70">Total Deductions</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
+                </div>
+                <div class="rounded-2xl bg-black/10 border border-white/10 p-5">
+                    <p class="text-xs text-white/70">Total Net Pay</p>
+                    <p class="text-lg font-semibold text-white">ZIG 0.00</p>
                 </div>
             </div>
         </x-erp.section>

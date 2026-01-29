@@ -50,4 +50,7 @@ class InventoryItemController extends Controller
             'vat_category' => $item->vat_category,
         ]);
     }
+        return view('inventory.items.index');
+    }
+
 }

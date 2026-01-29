@@ -11,6 +11,7 @@ use App\Models\SalesInvoiceLine;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 
 class SalesInvoiceController extends Controller
 {
@@ -29,6 +30,7 @@ class SalesInvoiceController extends Controller
         return view('sales.invoices.index', [
             'invoices' => $invoices,
         ]);
+        return view('sales.invoices.index');
     }
 
     public function create(Request $request)
@@ -103,4 +105,7 @@ class SalesInvoiceController extends Controller
                 ->with('status', "Invoice {$invoice->invoice_no} created.");
         });
     }
+        return view('sales.invoices.create');
+    }
+
 }

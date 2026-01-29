@@ -27,4 +27,13 @@ class PayrollRunController extends Controller
             'summary' => $summary,
         ]);
     }
+use Illuminate\Http\Request;
+
+class PayrollRunController extends Controller
+{
+    public function create(Request $request)
+    {
+        return view('payroll.runs.create');
+    }
+
 }

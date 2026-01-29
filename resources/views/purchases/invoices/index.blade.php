@@ -17,6 +17,14 @@
                 <div class="lg:col-span-3">
                     <label class="text-xs text-white/70">Status</label>
                     <select class="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 text-white px-4 py-2.5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div class="lg:col-span-4">
+                    <label class="text-xs text-white/70">Supplier</label>
+                    <input type="text" placeholder="Search supplier" class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                </div>
+                <div class="lg:col-span-3">
+                    <label class="text-xs text-white/70">Status</label>
+                    <select class="mt-2 w-full rounded-xl bg-white/10 border border-white/10 text-white">
                         <option>All</option>
                         <option>Draft</option>
                         <option>Submitted</option>
@@ -34,6 +42,14 @@
                     <x-erp.action-button variant="muted" class="w-full justify-center" type="submit">Filter</x-erp.action-button>
                 </div>
             </form>
+                        <input type="date" class="w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                        <input type="date" class="w-full rounded-xl bg-white/10 border border-white/10 text-white" />
+                    </div>
+                </div>
+                <div class="lg:col-span-2 flex items-end">
+                    <x-erp.action-button variant="muted" class="w-full justify-center">Filter</x-erp.action-button>
+                </div>
+            </div>
         </x-erp.section>
 
         <x-erp.section>
@@ -78,6 +94,20 @@
             @if(isset($invoices))
                 <div class="mt-4">{{ $invoices->links() }}</div>
             @endif
+                        <tr class="border-b border-white/5">
+                            <td class="py-4">PI-00012</td>
+                            <td class="py-4">Kudzai Wholesalers</td>
+                            <td class="py-4">INV-7781</td>
+                            <td class="py-4">2026-01-12</td>
+                            <td class="py-4"><span class="rounded-full bg-amber-500/20 text-amber-200 px-2 py-1 text-xs">Draft</span></td>
+                            <td class="py-4 text-right">ZIG 4,320.00</td>
+                        </tr>
+                        <tr>
+                            <td class="py-4 text-white/50" colspan="6">No more invoices. Import or create a new purchase invoice.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </x-erp.section>
 
         <x-modal name="cancel-purchase" maxWidth="lg">

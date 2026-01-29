@@ -1,5 +1,6 @@
 <x-app-layout>
 
+    
     @php
     $href = function (string $routeName, array $params = []) {
         return \Illuminate\Support\Facades\Route::has($routeName)
@@ -23,6 +24,7 @@
             ],
         ],
 
+        
           [
             'no' => 3,
             'title' => 'Stock Control',
@@ -83,6 +85,7 @@
             'title' => 'Employees & Payroll',
             'items' => [
                 ['label' => 'Employees', 'route' => $href('payroll.employees.index')],
+                ['label' => 'Employees', 'route' => $href('payroll.employees.index')], 
                 ['label' => 'Run Payroll', 'route' => $href('payroll.runs.create')],
             ],
         ],
@@ -119,6 +122,7 @@
             ],
         ],
 
+       
      ];
 
 @endphp

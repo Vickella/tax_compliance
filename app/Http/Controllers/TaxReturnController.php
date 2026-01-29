@@ -41,4 +41,19 @@ class TaxReturnController extends Controller
             'incomeTaxRate' => config('tax.income_tax_rate'),
         ]);
     }
+    public function vatReturn(Request $request)
+    {
+        return view('tax.vat-return');
+    }
+
+    public function qpd(Request $request)
+    {
+        return view('tax.qpd');
+    }
+
+    public function incomeTax(Request $request)
+    {
+        return view('tax.income-tax');
+    }
+
 }
