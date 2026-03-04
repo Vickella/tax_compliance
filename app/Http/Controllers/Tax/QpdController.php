@@ -3,133 +3,180 @@
 namespace App\Http\Controllers\Tax;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tax\Itf12bPayment;
-use App\Models\Tax\Itf12bProjection;
-use App\Models\Tax\TaxSetting;
 use App\Services\Tax\QpdService;
+use App\Models\Tax\QpdPayment;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QpdController extends Controller
 {
-    public function __construct(private readonly QpdService $service) {}
+    protected $service;
 
-    public function index()
+    public function __construct()
     {
-        $companyId = company_id();
-
-        $projections = Itf12bProjection::where('company_id', $companyId)
-            ->orderByDesc('tax_year')
-            ->paginate(20);
-
-        return view('modules.tax.qpd.index', compact('projections'));
+        $this->service = new QpdService(company_id());
     }
 
-    public function create()
+    /**
+     * Display QPD forecast
+     */
+    public function index(Request $request)
     {
-        return view('modules.tax.qpd.create');
+        $taxYear = $request->get('tax_year', now()->year);
+        
+        try {
+            $forecast = $this->service->forecast($taxYear);
+            
+            $payments = QpdPayment::where('company_id', company_id())
+                ->where('tax_year', $taxYear)
+                ->orderBy('quarter')
+                ->get();
+
+            return view('modules.tax.qpd.index', compact('forecast', 'payments', 'taxYear'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to load forecast: ' . $e->getMessage());
+        }
     }
 
+    /**
+     * Show form to create QPD payment
+     */
+    public function create(Request $request)
+    {
+        $taxYear = $request->get('tax_year', now()->year);
+        $quarter = $request->get('quarter', ceil(now()->month / 3));
+
+        try {
+            $calculation = $this->service->calculate($taxYear, $quarter);
+            return view('modules.tax.qpd.create', compact('calculation', 'taxYear', 'quarter'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Calculation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Store QPD payment
+     */
     public function store(Request $request)
     {
-        $companyId = company_id();
-        $settings = TaxSetting::forCompany($companyId);
-
-        $data = $request->validate([
-            'tax_year' => ['required','integer','min:2000','max:2100'],
-            'base_taxable_income' => ['required','numeric','min:0'],
-            'growth_rate' => ['nullable','numeric','min:-1','max:10'], // e.g 0.10
-            'notes' => ['nullable','string'],
+        $validated = $request->validate([
+            'tax_year' => 'required|integer',
+            'quarter' => 'required|integer|between:1,4',
+            'amount' => 'required|numeric|min:0.01',
+            'due_date' => 'required|date',
+            'payment_method' => 'required|in:BANK,ECOCASH,CASH,TRANSFER',
+            'reference' => 'nullable|string|max:50',
+            'notes' => 'nullable|string',
+            'action' => 'required|in:save,submit',
         ]);
 
-        $projection = $this->service->createProjection($companyId, $settings, $data);
+        try {
+            // Recalculate to ensure accuracy
+            $calculation = $this->service->calculate($validated['tax_year'], $validated['quarter']);
+            
+            $data = array_merge($validated, [
+                'estimated_annual_tax' => $calculation['estimated_annual_tax'],
+                'percentage_applied' => $calculation['qpd_percentage'],
+                'payment_date' => now()->toDateString(),
+            ]);
 
-        return redirect()->route('modules.tax.qpd.show', $projection->id)
-            ->with('success', 'QPD projection created.');
-    }
+            $payment = $this->service->savePayment($data, auth()->id());
 
-    public function show(Itf12bProjection $projection)
-    {
-        abort_unless((int)$projection->company_id === (int)company_id(), 403);
-
-        $settings = TaxSetting::forCompany(company_id());
-
-        $summary = $this->service->summary($projection, $settings);
-
-        return view('modules.tax.qpd.show', compact('projection','summary','settings'));
-    }
-
-    public function recordPayment(Request $request, Itf12bProjection $projection, int $quarterNo)
-    {
-        abort_unless((int)$projection->company_id === (int)company_id(), 403);
-        abort_unless(in_array($quarterNo, [1,2,3,4], true), 404);
-
-        $data = $request->validate([
-            'payment_date' => ['required','date'],
-            'amount' => ['required','numeric','min:0'],
-            'reference' => ['nullable','string','max:120'],
-        ]);
-
-        Itf12bPayment::create([
-            'company_id' => company_id(),
-            'itf12b_projection_id' => $projection->id,
-            'quarter_no' => $quarterNo,
-            'payment_date' => $data['payment_date'],
-            'amount' => $data['amount'],
-            'reference' => $data['reference'] ?? null,
-        ]);
-
-        return back()->with('success', "Q{$quarterNo} payment recorded.");
-    }
-
-    public function pdf(Itf12bProjection $projection, int $quarterNo)
-    {
-        abort_unless((int)$projection->company_id === (int)company_id(), 403);
-
-        $settings = TaxSetting::forCompany(company_id());
-        $summary = $this->service->summary($projection, $settings);
-        $q = $summary['quarters'][$quarterNo] ?? null;
-        abort_unless($q !== null, 404);
-
-        $pdf = app('dompdf.wrapper')->loadView('modules.tax.print.itf12b', [
-            'projection' => $projection,
-            'settings' => $settings,
-            'summary' => $summary,
-            'quarterNo' => $quarterNo,
-            'quarter' => $q,
-        ])->setPaper('a4');
-
-        return $pdf->download("ITF12B_{$projection->tax_year}_Q{$quarterNo}.pdf");
-    }
-
-    public function excel(Itf12bProjection $projection): StreamedResponse
-    {
-        abort_unless((int)$projection->company_id === (int)company_id(), 403);
-
-        $settings = TaxSetting::forCompany(company_id());
-        $summary = $this->service->summary($projection, $settings);
-
-        $filename = "ITF12B_{$projection->tax_year}.csv";
-
-        return response()->streamDownload(function () use ($projection, $summary) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['Tax Year', $projection->tax_year]);
-            fputcsv($out, ['Estimated Taxable Income', $summary['estimated_taxable_income']]);
-            fputcsv($out, ['Estimated Tax Payable', $summary['estimated_tax_payable']]);
-            fputcsv($out, []);
-            fputcsv($out, ['Quarter','Cumulative %','Cumulative Due','Paid To Date','Balance Due This Quarter','Due Date']);
-
-            foreach ($summary['quarters'] as $qNo => $q) {
-                fputcsv($out, [
-                    "Q{$qNo}",
-                    $q['cumulative_percent'],
-                    $q['cumulative_due'],
-                    $q['paid_to_date'],
-                    $q['balance_due'],
-                    $q['due_date'],
-                ]);
+            if ($request->action === 'submit') {
+                $payment->update(['status' => 'SUBMITTED']);
+                $message = 'QPD payment submitted successfully';
+            } else {
+                $message = 'QPD payment saved as draft';
             }
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv']);
+
+            return redirect()->route('tax.qpd.show', $payment)
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to save payment: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Show QPD payment details
+     */
+    public function show(QpdPayment $payment)
+    {
+        abort_unless($payment->company_id === company_id(), 403);
+
+        return view('modules.tax.qpd.show', compact('payment'));
+    }
+
+    /**
+     * Submit payment
+     */
+    public function submit(QpdPayment $payment)
+    {
+        abort_unless($payment->company_id === company_id(), 403);
+
+        if ($payment->status !== 'DRAFT') {
+            return back()->with('error', 'Only draft payments can be submitted');
+        }
+
+        $payment->update([
+            'status' => 'SUBMITTED',
+            'submitted_by' => auth()->id(),
+            'submitted_at' => now(),
+        ]);
+
+        return back()->with('success', 'QPD payment submitted successfully');
+    }
+
+    /**
+     * Mark payment as paid (with journal entry)
+     */
+    public function markAsPaid(QpdPayment $payment)
+    {
+        abort_unless($payment->company_id === company_id(), 403);
+
+        // This would create a journal entry and mark as paid
+        // You'll implement this with your PaymentService
+
+        $payment->update(['status' => 'PAID']);
+
+        return back()->with('success', 'QPD payment marked as paid');
+    }
+
+    /**
+     * Download PDF (ITF12B)
+     */
+    public function downloadPdf(QpdPayment $payment)
+    {
+        abort_unless($payment->company_id === company_id(), 403);
+
+        return $this->service->generateItf12bPdf($payment);
+    }
+
+    /**
+     * Download forecast CSV
+     */
+    public function downloadForecastCsv(Request $request)
+    {
+        $taxYear = $request->get('tax_year', now()->year);
+        
+        $forecast = $this->service->forecast($taxYear);
+        $path = $this->service->exportForecastToCsv($forecast);
+        
+        return response()->download(storage_path("app/public/{$path}"))
+            ->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Print payment
+     */
+    public function print(QpdPayment $payment)
+    {
+        abort_unless($payment->company_id === company_id(), 403);
+
+        return view('modules.tax.print.itf12b', [
+            'payment' => $payment,
+            'company' => $payment->company,
+            'print' => true,
+        ]);
     }
 }

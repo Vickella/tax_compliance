@@ -277,36 +277,44 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // Tax Module
             Route::prefix('tax')->name('tax.')->group(function () {
 
-                Route::get('/', [\App\Http\Controllers\Tax\TaxModuleController::class, 'index'])->name('index');
+                Route::get('/', [TaxModuleController::class, 'index'])->name('index');
 
                 // Settings
-                Route::get('/settings', [\App\Http\Controllers\Tax\TaxSettingsController::class, 'edit'])->name('settings.edit');
-                Route::post('/settings', [\App\Http\Controllers\Tax\TaxSettingsController::class, 'update'])->name('settings.update');
+                Route::get('/settings', [TaxSettingsController::class, 'edit'])->name('settings');
+                Route::post('/settings', [TaxSettingsController::class, 'update'])->name('settings.update');
+                Route::post('/settings/mapping', [TaxSettingsController::class, 'updateMapping'])->name('settings.mapping');
 
                 // VAT Return (VAT 7)
-                Route::get('/vat', [\App\Http\Controllers\Tax\VatReturnController::class, 'index'])->name('vat.index');
-                Route::get('/vat/create', [\App\Http\Controllers\Tax\VatReturnController::class, 'create'])->name('vat.create');
-                Route::post('/vat', [\App\Http\Controllers\Tax\VatReturnController::class, 'store'])->name('vat.store');
-                Route::get('/vat/{vatReturn}', [\App\Http\Controllers\Tax\VatReturnController::class, 'show'])->name('vat.show');
-                Route::get('/vat/{vatReturn}/pdf', [\App\Http\Controllers\Tax\VatReturnController::class, 'pdf'])->name('vat.pdf');
-                Route::get('/vat/{vatReturn}/excel', [\App\Http\Controllers\Tax\VatReturnController::class, 'excel'])->name('vat.excel');
+                Route::get('/vat', [VatReturnController::class, 'index'])->name('vat.index');
+                Route::get('/vat/create', [VatReturnController::class, 'create'])->name('vat.create');
+                Route::post('/vat', [VatReturnController::class, 'store'])->name('vat.store');
+                Route::get('/vat/{vatReturn}', [VatReturnController::class, 'show'])->name('vat.show');
+                Route::post('/vat/{vatReturn}/submit', [VatReturnController::class, 'submit'])->name('vat.submit');
+                Route::get('/vat/{vatReturn}/pdf', [VatReturnController::class, 'downloadPdf'])->name('vat.pdf');
+                Route::get('/vat/{vatReturn}/csv', [VatReturnController::class, 'downloadCsv'])->name('vat.csv');
+                Route::get('/vat/{vatReturn}/print', [VatReturnController::class, 'print'])->name('vat.print');
 
                 // QPD / ITF12B
-                Route::get('/qpd', [\App\Http\Controllers\Tax\QpdController::class, 'index'])->name('qpd.index');
-                Route::get('/qpd/create', [\App\Http\Controllers\Tax\QpdController::class, 'create'])->name('qpd.create');
-                Route::post('/qpd', [\App\Http\Controllers\Tax\QpdController::class, 'store'])->name('qpd.store');
-                Route::get('/qpd/{projection}', [\App\Http\Controllers\Tax\QpdController::class, 'show'])->name('qpd.show');
-                Route::post('/qpd/{projection}/pay/{quarterNo}', [\App\Http\Controllers\Tax\QpdController::class, 'recordPayment'])->name('qpd.pay');
-                Route::get('/qpd/{projection}/pdf/{quarterNo}', [\App\Http\Controllers\Tax\QpdController::class, 'pdf'])->name('qpd.pdf');
-                Route::get('/qpd/{projection}/excel', [\App\Http\Controllers\Tax\QpdController::class, 'excel'])->name('qpd.excel');
+                Route::get('/qpd', [QpdController::class, 'index'])->name('qpd.index');
+                Route::get('/qpd/create', [QpdController::class, 'create'])->name('qpd.create');
+                Route::post('/qpd', [QpdController::class, 'store'])->name('qpd.store');
+                Route::get('/qpd/{payment}', [QpdController::class, 'show'])->name('qpd.show');
+                Route::post('/qpd/{payment}/submit', [QpdController::class, 'submit'])->name('qpd.submit');
+                Route::post('/qpd/{payment}/paid', [QpdController::class, 'markAsPaid'])->name('qpd.paid');
+                Route::get('/qpd/{payment}/pdf', [QpdController::class, 'downloadPdf'])->name('qpd.pdf');
+                Route::get('/qpd/{payment}/print', [QpdController::class, 'print'])->name('qpd.print');
+                Route::get('/qpd/forecast', [QpdController::class, 'forecast'])->name('qpd.forecast');
+                Route::get('/qpd/forecast/csv', [QpdController::class, 'downloadForecastCsv'])->name('qpd.forecast.csv');
 
                 // Income Tax / ITF12C
-                Route::get('/income-tax', [\App\Http\Controllers\Tax\IncomeTaxController::class, 'index'])->name('income.index');
-                Route::get('/income-tax/create', [\App\Http\Controllers\Tax\IncomeTaxController::class, 'create'])->name('income.create');
-                Route::post('/income-tax', [\App\Http\Controllers\Tax\IncomeTaxController::class, 'store'])->name('income.store');
-                Route::get('/income-tax/{incomeTaxReturn}', [\App\Http\Controllers\Tax\IncomeTaxController::class, 'show'])->name('income.show');
-                Route::get('/income-tax/{incomeTaxReturn}/pdf', [\App\Http\Controllers\Tax\IncomeTaxController::class, 'pdf'])->name('income.pdf');
-                Route::get('/income-tax/{incomeTaxReturn}/excel', [\App\Http\Controllers\Tax\IncomeTaxController::class, 'excel'])->name('income.excel');
+                Route::get('/income', [IncomeTaxController::class, 'index'])->name('income.index');
+                Route::get('/income/create', [IncomeTaxController::class, 'create'])->name('income.create');
+                Route::post('/income', [IncomeTaxController::class, 'store'])->name('income.store');
+                Route::get('/income/{return}', [IncomeTaxController::class, 'show'])->name('income.show');
+                Route::post('/income/{return}/submit', [IncomeTaxController::class, 'submit'])->name('income.submit');
+                Route::get('/income/{return}/pdf', [IncomeTaxController::class, 'downloadPdf'])->name('income.pdf');
+                Route::get('/income/{return}/csv', [IncomeTaxController::class, 'downloadCsv'])->name('income.csv');
+                Route::get('/income/{return}/print', [IncomeTaxController::class, 'print'])->name('income.print');
             });
 
 
