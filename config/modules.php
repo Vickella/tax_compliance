@@ -145,8 +145,8 @@ return [
         ],
 
         [
-            'key' => 'income-tax',
-            'label' => 'Income Tax',
+            'key' => 'tax',
+            'label' => 'Tax',
             'description' => 'Tax years, ITF12B projections and annual tax computations.',
             'sections' => [
                 'transactions' => [
@@ -159,20 +159,6 @@ return [
             ],
         ],
 
-        [
-            'key' => 'tax-compliance-check',
-            'label' => 'Tax Compliance Check',
-            'description' => 'Flags, findings, rule-based exceptions and auditability.',
-            'sections' => [
-                'transactions' => [
-                    ['key' => 'run-checks', 'label' => 'Run Compliance Checks'],
-                ],
-                'reports' => [
-                    ['key' => 'findings', 'label' => 'Compliance Findings'],
-                    ['key' => 'exceptions-dashboard', 'label' => 'Exceptions Dashboard'],
-                ],
-            ],
-        ],
 
         [
             'key' => 'stock-management',

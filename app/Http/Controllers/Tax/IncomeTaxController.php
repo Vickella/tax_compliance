@@ -3,88 +3,168 @@
 namespace App\Http\Controllers\Tax;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tax\IncomeTaxReturn;
-use App\Models\Tax\TaxSetting;
 use App\Services\Tax\IncomeTaxService;
+use App\Models\Tax\IncomeTaxReturn;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class IncomeTaxController extends Controller
 {
-    public function __construct(private readonly IncomeTaxService $service) {}
+    protected $service;
 
-    public function index()
+    public function __construct()
     {
-        $companyId = company_id();
+        $this->service = new IncomeTaxService(company_id());
+    }
 
-        $returns = IncomeTaxReturn::where('company_id', $companyId)
-            ->orderByDesc('period_end')
+    /**
+     * Display list of income tax returns
+     */
+    public function index(Request $request)
+    {
+        $returns = IncomeTaxReturn::where('company_id', company_id())
+            ->orderBy('tax_year', 'desc')
             ->paginate(20);
 
         return view('modules.tax.income.index', compact('returns'));
     }
 
-    public function create()
+    /**
+     * Show form to create new income tax return
+     */
+    public function create(Request $request)
     {
-        return view('modules.tax.income.create');
+        $taxYear = $request->get('tax_year', now()->year);
+
+        try {
+            $calculation = $this->service->calculate($taxYear);
+            return view('modules.tax.income.create', compact('calculation', 'taxYear'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Calculation failed: ' . $e->getMessage());
+        }
     }
 
+    /**
+     * Store income tax return
+     */
     public function store(Request $request)
     {
-        $companyId = company_id();
-        $settings = TaxSetting::forCompany($companyId);
-
-        $data = $request->validate([
-            'period_start' => ['required','date'],
-            'period_end' => ['required','date','after_or_equal:period_start'],
-            'override_taxable_income' => ['nullable','numeric'],
-            'add_backs' => ['nullable','numeric','min:0'],
-            'deductions' => ['nullable','numeric','min:0'],
-            'notes' => ['nullable','string'],
+        $validated = $request->validate([
+            'tax_year' => 'required|integer|min:2000|max:2100',
+            'total_income' => 'required|numeric',
+            'total_expenses' => 'required|numeric',
+            'add_back_amount' => 'required|numeric',
+            'taxable_income' => 'required|numeric',
+            'income_tax' => 'required|numeric',
+            'aids_levy' => 'required|numeric',
+            'total_tax' => 'required|numeric',
+            'notes' => 'nullable|string',
+            'action' => 'required|in:save,submit',
         ]);
 
-        $return = $this->service->buildAndSave($companyId, $settings, $data);
+        try {
+            // Recalculate to ensure accuracy
+            $calculation = $this->service->calculate($validated['tax_year']);
+            
+            // Verify matches user input
+            if (abs($calculation['total_tax'] - $validated['total_tax']) > 0.01) {
+                return back()->with('error', 'Tax calculation mismatch. Please refresh and try again.')
+                    ->withInput();
+            }
 
-        return redirect()->route('modules.tax.income.show', $return->id)
-            ->with('success', 'Income Tax Return created.');
+            $data = array_merge($validated, [
+                'income_breakdown' => $calculation['income']['breakdown'],
+                'expense_breakdown' => $calculation['expenses']['breakdown'],
+                'add_back_breakdown' => $calculation['add_backs']['breakdown'],
+                'tax_rate' => $calculation['tax_rate'],
+                'assessed_loss_bf' => $calculation['assessed_loss_bf'],
+                'assessed_loss_cf' => $calculation['assessed_loss_cf'],
+                'qpd_paid' => $calculation['qpd_paid'],
+                'balance_due' => $calculation['balance_due'],
+                'filing_date' => now()->toDateString(),
+            ]);
+
+            $return = $this->service->saveReturn($data, auth()->id());
+
+            if ($request->action === 'submit') {
+                $return->update(['status' => 'SUBMITTED']);
+                $message = 'Income tax return submitted successfully';
+            } else {
+                $message = 'Income tax return saved as draft';
+            }
+
+            return redirect()->route('tax.income.show', $return)
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to save return: ' . $e->getMessage())
+                ->withInput();
+        }
     }
 
-    public function show(IncomeTaxReturn $incomeTaxReturn)
+    /**
+     * Show income tax return details
+     */
+    public function show(IncomeTaxReturn $return)
     {
-        abort_unless((int)$incomeTaxReturn->company_id === (int)company_id(), 403);
+        abort_unless($return->company_id === company_id(), 403);
 
-        return view('modules.tax.income.show', compact('incomeTaxReturn'));
+        return view('modules.tax.income.show', compact('return'));
     }
 
-    public function pdf(IncomeTaxReturn $incomeTaxReturn)
+    /**
+     * Submit return
+     */
+    public function submit(IncomeTaxReturn $return)
     {
-        abort_unless((int)$incomeTaxReturn->company_id === (int)company_id(), 403);
+        abort_unless($return->company_id === company_id(), 403);
 
-        $pdf = app('dompdf.wrapper')->loadView('modules.tax.print.itf12c', [
-            'incomeTaxReturn' => $incomeTaxReturn
-        ])->setPaper('a4');
+        if ($return->status !== 'DRAFT') {
+            return back()->with('error', 'Only draft returns can be submitted');
+        }
 
-        return $pdf->download("ITF12C_{$incomeTaxReturn->period_end->format('Ymd')}.pdf");
+        $return->update([
+            'status' => 'SUBMITTED',
+            'submitted_by' => auth()->id(),
+            'submitted_at' => now(),
+        ]);
+
+        return back()->with('success', 'Income tax return submitted successfully');
     }
 
-    public function excel(IncomeTaxReturn $incomeTaxReturn): StreamedResponse
+    /**
+     * Download PDF (ITF12C)
+     */
+    public function downloadPdf(IncomeTaxReturn $return)
     {
-        abort_unless((int)$incomeTaxReturn->company_id === (int)company_id(), 403);
+        abort_unless($return->company_id === company_id(), 403);
 
-        $filename = "ITF12C_{$incomeTaxReturn->period_end->format('Ymd')}.csv";
+        return $this->service->generateItf12cPdf($return);
+    }
 
-        return response()->streamDownload(function () use ($incomeTaxReturn) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['Field', 'Value']);
-            fputcsv($out, ['Period Start', $incomeTaxReturn->period_start?->format('Y-m-d')]);
-            fputcsv($out, ['Period End', $incomeTaxReturn->period_end?->format('Y-m-d')]);
-            fputcsv($out, ['Income Tax Rate', $incomeTaxReturn->income_tax_rate]);
-            fputcsv($out, ['Profit Before Tax', $incomeTaxReturn->profit_before_tax]);
-            fputcsv($out, ['Add backs', $incomeTaxReturn->add_backs]);
-            fputcsv($out, ['Deductions', $incomeTaxReturn->deductions]);
-            fputcsv($out, ['Taxable Income', $incomeTaxReturn->taxable_income]);
-            fputcsv($out, ['Income Tax Payable', $incomeTaxReturn->income_tax_payable]);
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv']);
+    /**
+     * Download CSV
+     */
+    public function downloadCsv(IncomeTaxReturn $return)
+    {
+        abort_unless($return->company_id === company_id(), 403);
+
+        $path = $this->service->exportToCsv($return);
+        
+        return response()->download(storage_path("app/public/{$path}"))
+            ->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Print view
+     */
+    public function print(IncomeTaxReturn $return)
+    {
+        abort_unless($return->company_id === company_id(), 403);
+
+        return view('modules.tax.print.itf12c', [
+            'return' => $return,
+            'company' => $return->company,
+            'print' => true,
+        ]);
     }
 }

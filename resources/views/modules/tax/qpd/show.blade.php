@@ -1,102 +1,123 @@
 @extends('layouts.erp')
-@section('page_title','QPD / ITF12B')
+
+@section('page_title', 'QPD Payment')
 
 @section('content')
-<div class="max-w-6xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between mb-3">
+<div class="max-w-3xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
         <div>
-            <div class="text-lg font-semibold">QPD Projection — {{ $projection->tax_year }}</div>
-            <div class="text-xs text-slate-300">Income tax rate: {{ number_format(($projection->income_tax_rate ?? 0)*100,2) }}%</div>
+            <h2 class="text-xl font-semibold text-white">QPD Payment {{ $payment->payment_no }}</h2>
+            <p class="text-sm text-slate-400">Q{{ $payment->quarter }} {{ $payment->tax_year }} • {{ $payment->payment_date->format('d M Y') }}</p>
         </div>
-        <div class="flex gap-2">
-            <a href="{{ route('modules.tax.qpd.index') }}"
-               class="text-xs rounded-lg px-3 py-2 bg-white/5 hover:bg-white/10 ring-1 ring-white/10">Back</a>
-            <a href="{{ route('modules.tax.qpd.excel',$projection->id) }}"
-               class="text-xs rounded-lg px-3 py-2 bg-white/5 hover:bg-white/10 ring-1 ring-white/10">Export Excel</a>
+        <div class="flex gap-3">
+            @if($payment->status === 'DRAFT')
+            <form method="POST" action="{{ route('modules.tax.qpd.submit', $payment) }}" class="inline">
+                @csrf
+                <button type="submit" 
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+                    Submit Payment
+                </button>
+            </form>
+            @endif
+            <a href="{{ route('tax.qpd.pdf', $payment) }}" 
+               class="px-4 py-2 bg-white/5 hover:bg-white/10 ring-1 ring-white/10 rounded-lg transition-colors">
+                Download ITF12B
+            </a>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        <div class="rounded-2xl ring-1 ring-white/10 bg-slate-950/40 p-4">
-            <div class="text-sm font-semibold">Projection</div>
-            <div class="mt-2 text-sm">
-                <div class="flex justify-between"><span class="text-slate-300">Base Taxable Income</span><span>{{ number_format($projection->base_taxable_income,2) }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-300">Growth Rate</span><span>{{ number_format(($projection->growth_rate ?? 0)*100,2) }}%</span></div>
-                <div class="flex justify-between"><span class="text-slate-300">Estimated Taxable Income</span><span>{{ number_format($summary['estimated_taxable_income'],2) }}</span></div>
-                <div class="border-t border-white/10 my-2"></div>
-                <div class="flex justify-between font-semibold"><span>Estimated Tax Payable</span><span>{{ number_format($summary['estimated_tax_payable'],2) }}</span></div>
+    {{-- Status Banner --}}
+    <div class="mb-6 p-4 rounded-lg ring-1 
+        @if($payment->status === 'PAID') bg-emerald-600/20 ring-emerald-600/30
+        @elseif($payment->status === 'SUBMITTED') bg-blue-600/20 ring-blue-600/30
+        @else bg-yellow-600/20 ring-yellow-600/30
+        @endif">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-medium">
+                    Status: <span class="font-bold">{{ $payment->status }}</span>
+                </span>
             </div>
-        </div>
-
-        <div class="rounded-2xl ring-1 ring-white/10 bg-slate-950/40 p-4">
-            <div class="text-sm font-semibold">Notes</div>
-            <div class="text-xs text-slate-300 mt-2 whitespace-pre-line">{{ $projection->notes ?: '—' }}</div>
+            @if($payment->status === 'PAID' && $payment->journalEntry)
+            <span class="text-xs">
+                Journal: <a href="{{ route('modules.accounting.journals.show', $payment->journalEntry) }}" class="text-indigo-400 hover:underline">
+                    {{ $payment->journalEntry->entry_no }}
+                </a>
+            </span>
+            @endif
         </div>
     </div>
 
-    <div class="rounded-2xl ring-1 ring-white/10 bg-slate-950/40 overflow-hidden">
-        <table class="min-w-full text-sm">
-            <thead class="text-xs text-slate-300">
-                <tr class="border-b border-white/10">
-                    <th class="text-left px-4 py-3">Quarter</th>
-                    <th class="text-right px-4 py-3">Cumulative %</th>
-                    <th class="text-right px-4 py-3">Cumulative Due</th>
-                    <th class="text-right px-4 py-3">Paid To Date</th>
-                    <th class="text-right px-4 py-3">Balance Due</th>
-                    <th class="text-right px-4 py-3">Due Date</th>
-                    <th class="px-4 py-3"></th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-white/10">
-                @foreach($summary['quarters'] as $qNo => $q)
-                    <tr>
-                        <td class="px-4 py-3 font-semibold">Q{{ $qNo }}</td>
-                        <td class="px-4 py-3 text-right">{{ number_format($q['cumulative_percent']*100,2) }}%</td>
-                        <td class="px-4 py-3 text-right">{{ number_format($q['cumulative_due'],2) }}</td>
-                        <td class="px-4 py-3 text-right">{{ number_format($q['paid_to_date'],2) }}</td>
-                        <td class="px-4 py-3 text-right font-semibold">{{ number_format($q['balance_due'],2) }}</td>
-                        <td class="px-4 py-3 text-right">{{ $q['due_date'] }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <div class="flex justify-end gap-2">
-                                <a href="{{ route('modules.tax.qpd.pdf', [$projection->id, $qNo]) }}"
-                                   class="text-xs rounded-lg px-3 py-2 bg-white/10 hover:bg-white/15 ring-1 ring-white/10">PDF ITF12B</a>
-                                <button type="button"
-                                        onclick="document.getElementById('pay-q{{ $qNo }}').classList.toggle('hidden')"
-                                        class="text-xs rounded-lg px-3 py-2 bg-white/5 hover:bg-white/10 ring-1 ring-white/10">Pay</button>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr id="pay-q{{ $qNo }}" class="hidden">
-                        <td colspan="7" class="px-4 py-3">
-                            <form method="POST" action="{{ route('modules.tax.qpd.pay', [$projection->id, $qNo]) }}"
-                                  class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                                @csrf
-                                <div>
-                                    <label class="text-xs text-slate-300">Payment Date</label>
-                                    <input type="date" name="payment_date"
-                                           class="mt-1 w-full rounded-lg bg-black/20 ring-1 ring-white/10 px-3 py-2 text-sm" required />
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-300">Amount</label>
-                                    <input name="amount"
-                                           class="mt-1 w-full rounded-lg bg-black/20 ring-1 ring-white/10 px-3 py-2 text-sm" required />
-                                </div>
-                                <div>
-                                    <label class="text-xs text-slate-300">Reference</label>
-                                    <input name="reference"
-                                           class="mt-1 w-full rounded-lg bg-black/20 ring-1 ring-white/10 px-3 py-2 text-sm" />
-                                </div>
-                                <div class="flex items-end justify-end">
-                                    <button class="text-xs rounded-lg px-3 py-2 bg-white/10 hover:bg-white/15 ring-1 ring-white/10">
-                                        Record Payment
-                                    </button>
-                                </div>
-                            </form>
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
+    {{-- Payment Details --}}
+    <div class="bg-black/20 rounded-xl ring-1 ring-white/10 overflow-hidden">
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- Left Column --}}
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-xs text-slate-400">Payment Number</div>
+                        <div class="text-lg font-semibold text-white font-mono">{{ $payment->payment_no }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">Tax Year</div>
+                        <div class="text-white">{{ $payment->tax_year }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">Quarter</div>
+                        <div class="text-white">Q{{ $payment->quarter }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">Payment Date</div>
+                        <div class="text-white">{{ $payment->payment_date->format('d/m/Y') }}</div>
+                    </div>
+                </div>
+
+                {{-- Right Column --}}
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-xs text-slate-400">Due Date</div>
+                        <div class="text-white">{{ $payment->due_date->format('d/m/Y') }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">Payment Method</div>
+                        <div class="text-white">{{ $payment->payment_method }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">Reference</div>
+                        <div class="text-white">{{ $payment->reference ?? 'N/A' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400">Created By</div>
+                        <div class="text-white">{{ $payment->createdBy?->name ?? 'System' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-white/10 my-6"></div>
+
+            {{-- Amount Summary --}}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-black/40 rounded-lg p-4">
+                    <div class="text-xs text-slate-400">Estimated Annual Tax</div>
+                    <div class="text-lg font-semibold text-white">${{ number_format($payment->estimated_annual_tax, 2) }}</div>
+                </div>
+                <div class="bg-black/40 rounded-lg p-4">
+                    <div class="text-xs text-slate-400">Percentage Applied</div>
+                    <div class="text-lg font-semibold text-white">{{ $payment->percentage_applied }}%</div>
+                </div>
+                <div class="bg-indigo-600/20 rounded-lg p-4">
+                    <div class="text-xs text-indigo-300">Payment Amount</div>
+                    <div class="text-xl font-bold text-indigo-400">${{ number_format($payment->amount, 2) }}</div>
+                </div>
+            </div>
+
+            @if($payment->metadata['notes'] ?? false)
+            <div class="mt-6 p-4 bg-black/40 rounded-lg">
+                <div class="text-xs text-slate-400 mb-1">Notes</div>
+                <p class="text-white">{{ $payment->metadata['notes'] }}</p>
+            </div>
+            @endif
+        </div>
     </div>
 </div>
 @endsection

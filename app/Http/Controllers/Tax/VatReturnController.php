@@ -3,93 +3,165 @@
 namespace App\Http\Controllers\Tax;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tax\TaxSetting;
-use App\Models\Tax\VatReturn;
 use App\Services\Tax\VatReturnService;
+use App\Models\Tax\VatReturn;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class VatReturnController extends Controller
 {
-    public function __construct(private readonly VatReturnService $service) {}
+    protected VatReturnService $service;
 
-    public function index()
+    public function __construct()
     {
-        $companyId = company_id();
+        $this->service = new VatReturnService(company_id());
+    }
 
-        $returns = VatReturn::where('company_id', $companyId)
-            ->orderByDesc('period_end')
+    /**
+     * Display list of VAT returns
+     */
+    public function index(Request $request): View
+    {
+        $returns = VatReturn::where('company_id', company_id())
+            ->orderBy('period_start', 'desc')
             ->paginate(20);
 
         return view('modules.tax.vat.index', compact('returns'));
     }
 
-    public function create()
+    /**
+     * Show form to create new VAT return
+     */
+    public function create(Request $request): View|RedirectResponse
     {
-        return view('modules.tax.vat.create');
+        $periodStart = $request->get('period_start', now()->startOfMonth()->toDateString());
+        $periodEnd = $request->get('period_end', now()->endOfMonth()->toDateString());
+
+        try {
+            $calculation = $this->service->calculate($periodStart, $periodEnd);
+            return view('modules.tax.vat.create', compact('calculation', 'periodStart', 'periodEnd'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Calculation failed: ' . $e->getMessage());
+        }
     }
 
-    public function store(Request $request)
+    /**
+     * Store VAT return
+     */
+    public function store(Request $request): RedirectResponse
     {
-        $companyId = company_id();
-        $settings = TaxSetting::forCompany($companyId);
-
-        $data = $request->validate([
-            'period_start' => ['required','date'],
-            'period_end' => ['required','date','after_or_equal:period_start'],
-
-            // optional overrides
-            'override_taxable_sales' => ['nullable','numeric','min:0'],
-            'override_taxable_purchases' => ['nullable','numeric','min:0'],
-            'override_output_vat' => ['nullable','numeric','min:0'],
-            'override_input_vat' => ['nullable','numeric','min:0'],
-            'notes' => ['nullable','string'],
+        $validated = $request->validate([
+            'period_start' => 'required|date',
+            'period_end' => 'required|date|after:period_start',
+            'output_vat' => 'required|numeric',
+            'input_vat' => 'required|numeric',
+            'vat_payable' => 'required|numeric',
+            'vat_rate' => 'required|numeric',
+            'notes' => 'nullable|string',
+            'action' => 'required|in:save,submit',
         ]);
 
-        $vatReturn = $this->service->buildAndSave($companyId, $settings, $data);
+        try {
+            // Recalculate to ensure accuracy
+            $calculation = $this->service->calculate($validated['period_start'], $validated['period_end']);
+            
+            // Verify matches user input
+            if (abs($calculation['vat_payable'] - $validated['vat_payable']) > 0.01) {
+                return back()->with('error', 'VAT calculation mismatch. Please refresh and try again.')
+                    ->withInput();
+            }
 
-        return redirect()->route('modules.tax.vat.show', $vatReturn->id)
-            ->with('success', 'VAT Return created.');
+            $data = array_merge($validated, [
+                'details' => $calculation['details'],
+                'filing_date' => now()->toDateString(),
+            ]);
+
+            $vatReturn = $this->service->saveReturn($data, auth()->id());
+
+            if ($request->action === 'submit') {
+                $vatReturn->update(['status' => 'SUBMITTED']);
+                $message = 'VAT return submitted successfully';
+            } else {
+                $message = 'VAT return saved as draft';
+            }
+
+            return redirect()->route('tax.vat.show', $vatReturn)
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to save VAT return: ' . $e->getMessage())
+                ->withInput();
+        }
     }
 
-    public function show(VatReturn $vatReturn)
+    /**
+     * Show VAT return details
+     */
+    public function show(VatReturn $vatReturn): View
     {
-        abort_unless((int)$vatReturn->company_id === (int)company_id(), 403);
+        abort_unless($vatReturn->company_id === company_id(), 403);
 
-        return view('modules.tax.vat.show', compact('vatReturn'));
+        return view('modules.tax.vat.show', [
+            'return' => $vatReturn
+        ]);
     }
 
-    public function pdf(VatReturn $vatReturn)
+    /**
+     * Submit VAT return
+     */
+    public function submit(VatReturn $vatReturn): RedirectResponse
     {
-        abort_unless((int)$vatReturn->company_id === (int)company_id(), 403);
+        abort_unless($vatReturn->company_id === company_id(), 403);
 
-        // DomPDF (barryvdh/laravel-dompdf)
-        $pdf = app('dompdf.wrapper')->loadView('modules.tax.print.vat7', [
-            'vatReturn' => $vatReturn
-        ])->setPaper('a4');
+        if ($vatReturn->status !== 'DRAFT') {
+            return back()->with('error', 'Only draft returns can be submitted');
+        }
 
-        return $pdf->download("VAT7_{$vatReturn->period_end->format('Ymd')}.pdf");
+        $vatReturn->update([
+            'status' => 'SUBMITTED',
+            'submitted_by' => auth()->id(),
+            'submitted_at' => now(),
+        ]);
+
+        return back()->with('success', 'VAT return submitted successfully');
     }
 
-    public function excel(VatReturn $vatReturn): StreamedResponse
+    /**
+     * Download PDF
+     */
+    public function downloadPdf(VatReturn $vatReturn)
     {
-        abort_unless((int)$vatReturn->company_id === (int)company_id(), 403);
+        abort_unless($vatReturn->company_id === company_id(), 403);
 
-        // CSV that opens in Excel
-        $filename = "VAT7_{$vatReturn->period_end->format('Ymd')}.csv";
+        return $this->service->generateVat7Pdf($vatReturn);
+    }
 
-        return response()->streamDownload(function () use ($vatReturn) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['Field', 'Value']);
-            fputcsv($out, ['Period Start', $vatReturn->period_start?->format('Y-m-d')]);
-            fputcsv($out, ['Period End', $vatReturn->period_end?->format('Y-m-d')]);
-            fputcsv($out, ['VAT Rate', $vatReturn->vat_rate]);
-            fputcsv($out, ['Taxable Sales', $vatReturn->taxable_sales]);
-            fputcsv($out, ['Output VAT', $vatReturn->output_vat]);
-            fputcsv($out, ['Taxable Purchases', $vatReturn->taxable_purchases]);
-            fputcsv($out, ['Input VAT', $vatReturn->input_vat]);
-            fputcsv($out, ['Net VAT Payable', $vatReturn->net_vat_payable]);
-            fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv']);
+    /**
+     * Download CSV/Excel
+     */
+    public function downloadCsv(VatReturn $vatReturn): BinaryFileResponse
+    {
+        abort_unless($vatReturn->company_id === company_id(), 403);
+
+        $path = $this->service->exportReturnToCsv($vatReturn);
+        
+        return response()->download(storage_path("app/public/{$path}"))
+            ->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Print view
+     */
+    public function print(VatReturn $vatReturn): View
+    {
+        abort_unless($vatReturn->company_id === company_id(), 403);
+
+        return view('modules.tax.print.vat7', [
+            'return' => $vatReturn,
+            'company' => $vatReturn->company,
+            'print' => true,
+        ]);
     }
 }

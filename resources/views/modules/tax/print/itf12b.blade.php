@@ -1,35 +1,145 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
+    <title>ITF12B - {{ $payment->payment_no }}</title>
     <style>
-        @page { margin: 0; }
-        body { margin: 0; font-family: DejaVu Sans, sans-serif; }
-        .page { position: relative; width: 210mm; height: 297mm; }
-        .bg { position:absolute; inset:0; width:100%; height:100%; }
-        .field { position:absolute; font-size: 11px; }
-        .box { padding: 2px 4px; }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 12px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .company-name { font-size: 18px; font-weight: bold; }
+        .form-title { font-size: 16px; font-weight: bold; margin-top: 10px; }
+        .section { margin: 20px 0; border: 1px solid #ccc; padding: 15px; }
+        .section-title { font-weight: bold; margin-bottom: 10px; background: #f0f0f0; padding: 5px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .totals { font-weight: bold; }
+        .footer { margin-top: 30px; text-align: center; font-size: 10px; }
+        .declaration { margin-top: 30px; }
     </style>
 </head>
 <body>
-<div class="page">
-    <img class="bg" src="{{ public_path('tax/forms/itf12b.png') }}" alt="ITF12B"/>
-
-    <div class="field box" style="left:20mm; top:35mm; font-weight:bold;">
-        {{ $projection->tax_year }} / Q{{ $quarterNo }}
+    <div class="header">
+        <div class="company-name">{{ $company->name }}</div>
+        <div class="form-title">PROVISIONAL TAX PAYMENT (ITF12B)</div>
+        <div>For the Quarter Ended {{ $payment->quarter_name ?? 'Q' . $payment->quarter . ' ' . $payment->tax_year }}</div>
+        <div>Payment No: {{ $payment->payment_no }}</div>
     </div>
 
-    <div class="field box" style="left:140mm; top:60mm;">
-        {{ number_format($summary['estimated_tax_payable'],2) }}
+    <div class="section">
+        <div class="section-title">TAXPAYER DETAILS</div>
+        <table>
+            <tr>
+                <td width="30%">Name:</td>
+                <td>{{ $company->name }}</td>
+                <td width="30%">Trade Name:</td>
+                <td>{{ $company->trade_name ?? $company->name }}</td>
+            </tr>
+            <tr>
+                <td>Business Partner No:</td>
+                <td>{{ $company->bp_number ?? 'N/A' }}</td>
+                <td>Contract Account No:</td>
+                <td>{{ $company->vat_number ?? 'N/A' }}</td>
+            </tr>
+            <tr>
+                <td>Physical Address:</td>
+                <td colspan="3">{{ $company->physical_address ?? 'N/A' }}</td>
+            </tr>
+            <tr>
+                <td>Email:</td>
+                <td>{{ $company->email }}</td>
+                <td>Phone:</td>
+                <td>{{ $company->phone ?? 'N/A' }}</td>
+            </tr>
+        </table>
     </div>
 
-    <div class="field box" style="left:140mm; top:75mm; font-weight:bold;">
-        {{ number_format($quarter['balance_due'],2) }}
+    <div class="section">
+        <div class="section-title">ESTIMATED ANNUAL INCOME AND TAX</div>
+        <table>
+            <tr>
+                <td width="60%">Estimated Annual Net Profit (or Loss)</td>
+                <td class="text-right">{{ number_format($payment->estimated_annual_tax / ($payment->percentage_applied / 100), 2) }}</td>
+            </tr>
+            <tr>
+                <td>Estimated Tax Payable for the Year</td>
+                <td class="text-right">{{ number_format($payment->estimated_annual_tax, 2) }}</td>
+            </tr>
+        </table>
     </div>
 
-    <div class="field box" style="left:140mm; top:85mm;">
-        Due: {{ $quarter['due_date'] }}
+    <div class="section">
+        <div class="section-title">QUARTERLY PAYMENT DETAILS</div>
+        <table>
+            <tr>
+                <td width="60%">Quarter</td>
+                <td class="text-right">Q{{ $payment->quarter }}</td>
+            </tr>
+            <tr>
+                <td>Payment Date</td>
+                <td class="text-right">{{ $payment->payment_date->format('d/m/Y') }}</td>
+            </tr>
+            <tr>
+                <td>Due Date</td>
+                <td class="text-right">{{ $payment->due_date->format('d/m/Y') }}</td>
+            </tr>
+            <tr>
+                <td>Percentage Applied</td>
+                <td class="text-right">{{ $payment->percentage_applied }}%</td>
+            </tr>
+            <tr class="totals">
+                <td>QUARTERLY PAYMENT DUE</td>
+                <td class="text-right">{{ number_format($payment->amount, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Payment Method</td>
+                <td class="text-right">{{ $payment->payment_method }}</td>
+            </tr>
+            <tr>
+                <td>Reference / Receipt No</td>
+                <td class="text-right">{{ $payment->reference ?? 'N/A' }}</td>
+            </tr>
+        </table>
     </div>
-</div>
+
+    @if($payment->status === 'PAID')
+    <div class="section">
+        <div class="section-title">PAYMENT CONFIRMATION</div>
+        <p>This payment has been confirmed and processed.</p>
+        <p>Payment Status: <strong>PAID</strong></p>
+        @if($payment->journalEntry)
+        <p>Journal Reference: {{ $payment->journalEntry->entry_no }}</p>
+        @endif
+    </div>
+    @endif
+
+    <div class="declaration">
+        <p><strong>Notes:</strong></p>
+        <ol>
+            <li>This payment is based on estimated annual taxable income.</li>
+            <li>If the estimated net profit changes significantly, please adjust subsequent quarterly payments.</li>
+            <li>Failure to submit this return together with payment by the due date may result in penalties and interest.</li>
+        </ol>
+        
+        <div style="margin-top: 40px;">
+            <table style="border: none;">
+                <tr>
+                    <td style="border: none;">Signature: ______________________________</td>
+                    <td style="border: none;">Date: {{ $payment->payment_date->format('d/m/Y') }}</td>
+                </tr>
+                <tr>
+                    <td style="border: none;">Name: ______________________________</td>
+                    <td style="border: none;">Designation: ______________________________</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Generated on: {{ $generated_at->format('d/m/Y H:i:s') }}</p>
+        <p>This is a computer generated document. No signature required if submitted electronically.</p>
+    </div>
 </body>
 </html>
