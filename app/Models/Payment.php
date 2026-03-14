@@ -12,32 +12,23 @@ class Payment extends Model
         'company_id',
         'payment_no',
         'payment_type',
+        'party_type',        // ADD THIS
+        'party_id',          // ADD THIS
+        'bank_account_id',   // CHANGE FROM payment_account_id
         'posting_date',
-        'payment_account_id',
         'currency',
         'exchange_rate',
         'amount',
-        'reference_no',
-        'reference_date',
-        'remarks',
-        'customer_id',
-        'supplier_id',
+        'reference',         // CHANGE FROM reference_no
         'status',
         'created_by',
         'submitted_by',
         'submitted_at',
-        'reversed_by',
-        'reversed_at',
-        'reversal_reason',
-        'journal_entry_id',
-        'reversal_journal_entry_id',
     ];
 
     protected $casts = [
         'posting_date' => 'date',
-        'reference_date' => 'date',
         'submitted_at' => 'datetime',
-        'reversed_at' => 'datetime',
         'amount' => 'decimal:2',
         'exchange_rate' => 'decimal:4',
     ];
@@ -47,29 +38,19 @@ class Payment extends Model
         return $this->hasMany(PaymentAllocation::class);
     }
 
-    public function paymentAccount()
+    public function bankAccount()
     {
-        return $this->belongsTo(ChartOfAccount::class, 'payment_account_id');
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
     }
 
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class, 'party_id')->where('party_type', 'CUSTOMER');
     }
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class);
-    }
-
-    public function journalEntry()
-    {
-        return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
-    }
-
-    public function reversalJournalEntry()
-    {
-        return $this->belongsTo(JournalEntry::class, 'reversal_journal_entry_id');
+        return $this->belongsTo(Supplier::class, 'party_id')->where('party_type', 'SUPPLIER');
     }
 
     public function company()

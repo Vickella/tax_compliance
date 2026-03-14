@@ -1,4 +1,4 @@
-@extends('layouts.erp')
+@extends('layouts.app')
 @section('page_title','Sales Invoice')
 
 @section('content')

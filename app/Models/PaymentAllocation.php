@@ -10,8 +10,8 @@ class PaymentAllocation extends Model
     
     protected $fillable = [
         'payment_id',
-        'invoice_type',
-        'invoice_id',
+        'reference_type',
+        'reference_id',
         'allocated_amount',
     ];
 
@@ -22,5 +22,16 @@ class PaymentAllocation extends Model
     public function payment()
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    // Remove the where clause - it's trying to query the wrong table
+    public function salesInvoice()
+    {
+        return $this->belongsTo(SalesInvoice::class, 'reference_id');
+    }
+
+    public function purchaseInvoice()
+    {
+        return $this->belongsTo(PurchaseInvoice::class, 'reference_id');
     }
 }

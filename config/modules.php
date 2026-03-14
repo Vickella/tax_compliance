@@ -161,8 +161,8 @@ return [
 
 
         [
-            'key' => 'stock-management',
-            'label' => 'Stock Management',
+            'key' => 'inventory',
+            'label' => 'Inventory',
             'description' => 'Warehouses, stock ledger, movements and balances.',
             'sections' => [
                 'masters' => [

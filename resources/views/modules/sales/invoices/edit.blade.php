@@ -1,9 +1,9 @@
-@extends('layouts.erp')
+@extends('layouts.app')
 @section('page_title','Edit Sales Invoice')
 
 @section('content')
 <div class="h-full overflow-auto">
-    <form method="POST" action="{{ route('sales.invoices.update',$invoice) }}" class="space-y-4">
+    <form method="POST" action="{{ route('modules.sales.invoices.update',$invoice) }}" class="space-y-4">
         @csrf
         @method('PUT')
 

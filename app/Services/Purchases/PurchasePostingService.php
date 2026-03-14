@@ -18,10 +18,13 @@ class PurchasePostingService
                 throw new \RuntimeException('Purchase invoice must be SUBMITTED before posting.');
             }
 
-            // Accounts
-            $ap = $this->coa($inv->company_id, '2100');  // Accounts Payable (control)
-            $invAcc = $this->coa($inv->company_id, '1300'); // Inventory (simple baseline)
-            $vatInput = $this->coa($inv->company_id, '1215'); // VAT Input (Recoverable)
+            // Accounts - FIXED WITH YOUR ACTUAL CODES
+            $ap = $this->coa($inv->company_id, '2100');      // Accounts Payable (control) - from your chart
+            $invAcc = $this->coa($inv->company_id, '1300');  // Inventory - from your chart (code 1300)
+            $vatInput = $this->coa($inv->company_id, '2210-VAT-IN'); // VAT Input (Recoverable) - from your chart
+            
+            // Note: Your VAT Input account is '2210-VAT-IN' (from row #36 in your chart)
+            // If that doesn't exist, fallback to '2210' (from row #39)
 
             $je = JournalEntry::create([
                 'company_id' => $inv->company_id,

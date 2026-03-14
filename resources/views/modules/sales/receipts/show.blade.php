@@ -1,4 +1,4 @@
-@extends('layouts.erp')
+@extends('layouts.app')
 @section('page_title','Receipt')
 
 @section('content')
@@ -16,7 +16,7 @@
                 <div class="text-lg font-semibold">{{ $payment->payment_no }}</div>
                 <div class="text-sm text-slate-300">Status: {{ $payment->status }}</div>
             </div>
-            <a href="{{ route('sales.receipts.index') }}"
+            <a href="{{ route('modules.sales.receipts.index') }}"
                class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 ring-1 ring-white/10 text-sm">
                 Back
             </a>
@@ -28,7 +28,7 @@
             <div>Amount: <span class="text-slate-200">{{ number_format((float)$payment->amount,2) }}</span></div>
             <div>Customer ID: <span class="text-slate-200">{{ $payment->party_id }}</span></div>
             <div>Bank Account ID: <span class="text-slate-200">{{ $payment->bank_account_id }}</span></div>
-            <div>Reference: <span class="text-slate-200">{{ $payment->reference }}</span></div>
+            <div>Reference: <span class="text-slate-200">{{ $payment->reference ?? 'N/A' }}</span></div>
         </div>
     </div>
 
@@ -40,29 +40,32 @@
                 <thead class="bg-white/5">
                     <tr>
                         <th class="p-3 text-left">Type</th>
-                        <th class="p-3 text-left">Reference ID</th>
+                        <th class="p-3 text-left">Invoice</th>
                         <th class="p-3 text-left">Allocated Amount</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-white/10">
                     @forelse($payment->allocations as $a)
+                        @php
+                            $invoice = $invoices[$a->reference_id] ?? null;
+                        @endphp
                         <tr class="hover:bg-white/5">
                             <td class="p-3">{{ $a->reference_type }}</td>
                             <td class="p-3">
-                                @if($a->reference_type === 'SALES_INVOICE')
+                                @if($a->reference_type === 'SALES_INVOICE' && $invoice)
                                     <a class="text-indigo-200 hover:underline"
-                                       href="{{ route('sales.invoices.show',$a->reference_id) }}">
-                                        {{ $a->reference_id }}
+                                       href="{{ route('modules.sales.invoices.show', $invoice->id) }}">
+                                        {{ $invoice->invoice_no }}
                                     </a>
                                 @else
-                                    {{ $a->reference_id }}
+                                    <span class="text-slate-400">Invoice #{{ $a->reference_id }}</span>
                                 @endif
                             </td>
-                            <td class="p-3">{{ number_format((float)$a->allocated_amount,2) }}</td>
+                            <td class="p-3">${{ number_format((float)$a->allocated_amount,2) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td class="p-4 text-slate-300" colspan="3">No allocations recorded.</td>
+                            <td class="p-4 text-slate-300 text-center" colspan="3">No allocations recorded.</td>
                         </tr>
                     @endforelse
                 </tbody>
