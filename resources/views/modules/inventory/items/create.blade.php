@@ -1,5 +1,5 @@
 {{-- resources/views/modules/inventory/items/create.blade.php --}}
-@extends('layouts.erp')
+@extends('layouts.app')
 
 @section('content')
 <div class="p-6">

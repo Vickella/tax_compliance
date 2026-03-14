@@ -3,13 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name', 'ZimTax Compliance') }}</title>
+    <title>{{ config('app.name', 'ZimTax ERP') }}</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    {{-- Dark theme form + table fix (keeps inputs readable on dark UI) --}}
     <style>
-        /* ---------- Dark UI Inputs (Bootstrap + Tailwind safe) ---------- */
+        /* Dark theme inputs */
         .form-control,
         .form-select,
         input[type="text"],
@@ -43,30 +42,11 @@
             box-shadow: 0 0 0 0.20rem rgba(108, 99, 255, 0.20) !important;
         }
 
-        /* Dropdown options must remain readable */
         select option {
             color: #0b1220 !important;
             background: white;
         }
 
-        /* ---------- Better table readability on dark background ---------- */
-        table th {
-            color: rgba(255,255,255,0.85);
-            font-weight: 600;
-        }
-        
-        table td {
-            color: rgba(255,255,255,0.85);
-        }
-        
-        .table-wrap {
-            border: 1px solid rgba(255,255,255,0.12);
-            background: rgba(0,0,0,0.12);
-            border-radius: 0.75rem;
-            overflow: hidden;
-        }
-
-        /* ---------- Custom scrollbar for dark theme ---------- */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -86,39 +66,18 @@
             background: rgba(255,255,255,0.3);
         }
 
-        /* Firefox scrollbar */
         * {
             scrollbar-width: thin;
             scrollbar-color: rgba(255,255,255,0.2) rgba(255,255,255,0.05);
         }
 
-        /* ---------- Ensure scrolling works ---------- */
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
+            overflow: hidden;
         }
 
-        .scrollable-content {
-            overflow-y: auto;
-            overflow-x: hidden;
-            height: 100%;
-        }
-
-        .content-wrapper {
-            min-height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Table horizontal scroll */
-        .table-responsive {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            margin-bottom: 1rem;
-        }
-
-        /* Card styles */
         .card {
             background: rgba(0,0,0,0.2);
             border: 1px solid rgba(255,255,255,0.08);
@@ -126,92 +85,143 @@
             padding: 1.25rem;
         }
 
-        /* Form layout */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
+        .module-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            color: #e2e8f0;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            background: transparent;
+            border: none;
+            cursor: pointer;
         }
 
-        /* Responsive adjustments */
-        @media (max-width: 640px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .p-responsive {
-                padding: 1rem;
-            }
+        .module-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .module-btn.active {
+            background: rgba(108, 99, 255, 0.2);
+            color: white;
+            border-left: 3px solid #6c63ff;
         }
     </style>
 </head>
 
-<body class="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-950 to-purple-950 text-slate-100 antialiased">
-    <!-- Main container with flex column to push footer down -->
-    <div class="min-h-screen flex flex-col">
-        <!-- Header/Navigation -->
-        <header class="bg-black/20 border-b border-white/10 sticky top-0 z-50 backdrop-blur-sm">
-            <div class="px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between h-16">
-                    <!-- Logo and brand -->
-                    <div class="flex items-center gap-3">
-                        <div class="font-semibold text-lg">{{ config('app.name', 'ZimTax') }}</div>
-                    </div>
-
-                    <!-- User menu -->
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-slate-300 hidden sm:inline">
-                            {{ auth()->user()->name ?? 'Guest' }}
-                        </span>
-                        @auth
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button type="submit" class="text-sm bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-lg transition-colors">
-                                Logout
-                            </button>
-                        </form>
-                        @endauth
-                    </div>
+<body class="bg-gradient-to-br from-indigo-950 via-slate-950 to-purple-950 text-slate-100 antialiased overflow-hidden h-screen">
+    
+    {{-- Main container with flex row --}}
+    <div class="flex h-screen overflow-hidden">
+        
+        {{-- SIDEBAR - Fixed width 240px --}}
+        <aside class="w-60 bg-black/30 border-r border-white/10 flex-shrink-0 flex flex-col overflow-hidden">
+            
+            {{-- Logo - Fixed --}}
+            <div class="px-4 py-5 border-b border-white/10 flex items-center gap-3 flex-shrink-0">
+                <div class="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">L</div>
+                <div>
+                    <div class="font-semibold text-white text-sm">Laravel ERP</div>
+                    <div class="text-xs text-slate-400">Compliance & Statutory</div>
                 </div>
             </div>
-        </header>
-
-        <!-- Main content - THIS WILL SCROLL -->
-        <main class="flex-1 overflow-y-auto">
-            <div class="px-4 sm:px-6 lg:px-8 py-6">
-                <!-- Page title -->
-                @hasSection('page_title')
-                <div class="mb-6">
-                    <h1 class="text-2xl font-semibold">@yield('page_title')</h1>
+            
+            {{-- Scrollable menu area --}}
+            <div class="flex-1 overflow-y-auto px-3 py-4">
+                <nav class="space-y-1">
+                    
+                    {{-- Home as button --}}
+                    <button onclick="window.location='{{ route('dashboard') }}'" 
+                            class="module-btn {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                        Home
+                    </button>
+                    
+                    {{-- MODULES Header --}}
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">MODULES</div>
+                    
+                    {{-- Module buttons --}}
+                    <button onclick="window.location='{{ route('modules.index', ['module' => 'company-settings']) }}'" 
+                            class="module-btn {{ request()->is('m/company-settings*') ? 'active' : '' }}">
+                        Company Settings
+                    </button>
+                    
+                    <button onclick="window.location='{{ route('modules.index', ['module' => 'sales']) }}'" 
+                            class="module-btn {{ request()->is('m/sales*') ? 'active' : '' }}">
+                        Sales
+                    </button>
+                    
+                    <button onclick="window.location='{{ route('modules.index', ['module' => 'purchases']) }}'" 
+                            class="module-btn {{ request()->is('m/purchases*') ? 'active' : '' }}">
+                        Purchases
+                    </button>
+                    
+                    <button onclick="window.location='{{ route('modules.index', ['module' => 'inventory']) }}'" 
+                            class="module-btn {{ request()->is('m/inventory*') ? 'active' : '' }}">
+                        Inventory
+                    </button>
+                    
+                    <button onclick="window.location='{{ route('modules.index', ['module' => 'accounting']) }}'" 
+                            class="module-btn {{ request()->is('m/accounting*') ? 'active' : '' }}">
+                        Accounting
+                    </button>
+                    
+                    <button onclick="window.location='{{ route('modules.index', ['module' => 'payroll']) }}'" 
+                            class="module-btn {{ request()->is('m/payroll*') ? 'active' : '' }}">
+                        Payroll
+                    </button>
+                    
+                    <button onclick="window.location='{{ route('modules.index', ['module' => 'tax']) }}'" 
+                            class="module-btn {{ request()->is('m/tax*') ? 'active' : '' }}">
+                        Tax
+                    </button>
+                </nav>
+            </div>
+            
+            {{-- User footer - Fixed --}}
+            <div class="border-t border-white/10 p-4 bg-black/20 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-slate-300">Super Admin</div>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10">
+                            Logout
+                        </button>
+                    </form>
                 </div>
-                @endif
+            </div>
+        </aside>
 
-                <!-- Content area - forms and tables will scroll here -->
-                <div class="scrollable-content min-h-[calc(100vh-12rem)]">
+        {{-- MAIN CONTENT AREA --}}
+        <main class="flex-1 flex flex-col overflow-hidden">
+            
+            {{-- Top bar - minimal --}}
+            <header class="bg-black/20 border-b border-white/10 flex-shrink-0 px-6 py-2">
+                <div class="flex items-center justify-end gap-4 text-xs text-slate-400">
+                    <span>Type here to search</span>
+                    <span>ENG</span>
+                    <span>21:57</span>
+                    <span>12/3/2026</span>
+                </div>
+            </header>
+            
+            {{-- Scrollable content area --}}
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="max-w-7xl mx-auto">
                     @yield('content')
                 </div>
             </div>
+            
+            {{-- Footer --}}
+            <footer class="bg-black/20 border-t border-white/10 flex-shrink-0 px-6 py-2 text-xs text-slate-400">
+                <div class="flex justify-between">
+                    <span>© 2026 Laravel. All rights reserved.</span>
+                    <span>v1.0.0</span>
+                </div>
+            </footer>
         </main>
-
-        <!-- Footer (optional) -->
-        <footer class="bg-black/20 border-t border-white/10 py-3 px-4 sm:px-6 lg:px-8 text-xs text-slate-400">
-            <div class="flex justify-between">
-                <span>&copy; {{ date('Y') }} {{ config('app.name', 'ZimTax') }}</span>
-                <span>v1.0.0</span>
-            </div>
-        </footer>
     </div>
-
-    <!-- Mobile menu script (if needed) -->
-    <script>
-        // Add any JavaScript here if needed
-        document.addEventListener('DOMContentLoaded', function() {
-            // Ensure all scrollable containers work
-            const mainContent = document.querySelector('main');
-            if (mainContent) {
-                mainContent.style.overflowY = 'auto';
-            }
-        });
-    </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-@extends('layouts.erp')
+@extends('layouts.app')
 
 @section('page_title', 'Sales')
 
@@ -24,13 +24,7 @@
             <div class="text-sm font-semibold mb-3">Transactions</div>
 
             <div class="space-y-2">
-                <a href="{{ route('modules.sales.invoices.index') }}"
-                   class="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-white/5 ring-1 ring-white/10">
-                    <span>Sales Invoices</span>
-                    <span class="text-slate-300">→</span>
-                </a>
-
-                <a href="{{ route('modules.sales.receipts.index') }}"
+               <a href="{{ route('modules.sales.receipts.index') }}"
                    class="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-white/5 ring-1 ring-white/10">
                     <span>Receipts</span>
                     <span class="text-slate-300">→</span>

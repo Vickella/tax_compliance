@@ -40,32 +40,34 @@ class PaymentPostingService
             // allocations
             $allocTotal = 0;
             foreach ($payload['allocations'] ?? [] as $a) {
-                if (($a['allocated_amount'] ?? 0) <= 0) continue;
+                if (($a['amount'] ?? 0) <= 0) continue;
 
                 $invoice = SalesInvoice::query()
                     ->where('company_id', $companyId)
                     ->where('id', $a['invoice_id'])
-                    ->where('status','SUBMITTED')
+                    ->where('status', 'SUBMITTED')
                     ->firstOrFail();
 
                 PaymentAllocation::create([
                     'payment_id' => $payment->id,
                     'reference_type' => 'SALES_INVOICE',
                     'reference_id' => $invoice->id,
-                    'allocated_amount' => $a['allocated_amount'],
+                    'allocated_amount' => $a['amount'],
                 ]);
 
-                $allocTotal += (float)$a['allocated_amount'];
+                $allocTotal += (float)($a['amount']);
             }
 
             // Journal entry for receipt
             $bank = BankAccount::query()
-                ->where('company_id',$companyId)
-                ->where('id',$payment->bank_account_id)
+                ->where('company_id', $companyId)
+                ->where('id', $payment->bank_account_id)
                 ->firstOrFail();
 
             $ar = ChartOfAccount::query()
-                ->where('company_id',$companyId)->where('code','1100-AR')->where('is_active',1)
+                ->where('company_id', $companyId)
+                ->where('code', '1100-AR')
+                ->where('is_active', 1)
                 ->firstOrFail();
 
             $jeNo = NumberSeries::next('JE', $companyId, 'journal_entries', 'entry_no');
@@ -111,20 +113,34 @@ class PaymentPostingService
             $rate = (float)($payment->exchange_rate ?? 1);
 
             GLEntry::create([
-                'company_id'=>$companyId,'posting_date'=>$payment->posting_date,
-                'account_id'=>$jlBank->account_id,'journal_entry_id'=>$je->id,'journal_line_id'=>$jlBank->id,
-                'debit'=>$payment->amount,'credit'=>0,'currency'=>$payment->currency,
-                'amount_base'=>((float)$payment->amount)*$rate,'party_type'=>'NONE','party_id'=>null
+                'company_id' => $companyId,
+                'posting_date' => $payment->posting_date,
+                'account_id' => $jlBank->account_id,
+                'journal_entry_id' => $je->id,
+                'journal_line_id' => $jlBank->id,
+                'debit' => $payment->amount,
+                'credit' => 0,
+                'currency' => $payment->currency,
+                'amount_base' => ((float)$payment->amount) * $rate,
+                'party_type' => 'NONE',
+                'party_id' => null
             ]);
 
             GLEntry::create([
-                'company_id'=>$companyId,'posting_date'=>$payment->posting_date,
-                'account_id'=>$jlAr->account_id,'journal_entry_id'=>$je->id,'journal_line_id'=>$jlAr->id,
-                'debit'=>0,'credit'=>$payment->amount,'currency'=>$payment->currency,
-                'amount_base'=>(0-(float)$payment->amount)*$rate,'party_type'=>'CUSTOMER','party_id'=>$payment->party_id
+                'company_id' => $companyId,
+                'posting_date' => $payment->posting_date,
+                'account_id' => $jlAr->account_id,
+                'journal_entry_id' => $je->id,
+                'journal_line_id' => $jlAr->id,
+                'debit' => 0,
+                'credit' => $payment->amount,
+                'currency' => $payment->currency,
+                'amount_base' => (0 - (float)$payment->amount) * $rate,
+                'party_type' => 'CUSTOMER',
+                'party_id' => $payment->party_id
             ]);
 
-            // Optional: enforce allocations not exceed payment (strict control)
+            // Enforce allocations not exceed payment
             if ($allocTotal > (float)$payment->amount + 0.0001) {
                 throw new \RuntimeException('Allocated total cannot exceed receipt amount.');
             }

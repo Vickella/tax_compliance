@@ -25,13 +25,13 @@ class SalesPostingService
 
             $companyId = (int)$invoice->company_id;
 
-            // Required accounts (your config codes)
+            // Required accounts (using your actual account codes)
             $ar      = $this->coa->require($companyId, '1200'); // Accounts Receivable
-            $sales   = $this->coa->require($companyId, '4100'); // Sales Revenue
+            $sales   = $this->coa->require($companyId, '4000-SALES'); // Sales Revenue (FIXED)
             $vatOut  = $this->coa->require($companyId, '2200'); // VAT Payable (Output VAT)
 
             // Optional but required for proper stock accounting in your system design
-            $cogsAcc = $this->coa->require($companyId, '5100'); // COGS
+            $cogsAcc = $this->coa->require($companyId, '5000-COGS'); // COGS (Fixed to match your account)
             $invAcc  = $this->coa->require($companyId, '1300'); // Inventory
 
             $postingDate = $invoice->posting_date->format('Y-m-d');

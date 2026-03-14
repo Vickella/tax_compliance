@@ -1,5 +1,5 @@
 {{-- resources/views/modules/purchases/invoices/index.blade.php --}}
-@extends('layouts.erp')
+@extends('layouts.app')
 
 @section('content')
 <div class="p-6">

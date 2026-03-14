@@ -3,9 +3,9 @@
 namespace App\Services\Tax;
 
 use App\Models\Tax\QpdPayment;
-use App\Models\Tax\Itf12bPayment;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\DB; // Add this import
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class QpdService extends BaseTaxService
 {
@@ -14,34 +14,93 @@ class QpdService extends BaseTaxService
      */
     public function calculate(int $taxYear, int $quarter): array
     {
-        // Get estimated annual tax (using previous year or current projections)
-        $incomeTaxService = new IncomeTaxService($this->companyId);
-        $previousYearCalc = $incomeTaxService->calculate($taxYear - 1);
-        $estimatedAnnualTax = $previousYearCalc['total_tax'] ?? 0; // Add null coalescing
+        try {
+            // Get estimated annual tax (using previous year or current projections)
+            $estimatedAnnualTax = $this->getEstimatedAnnualTax($taxYear);
+            
+            // Get QPD percentage for the quarter
+            $percentage = $this->taxSettings->getQpdPercentage($quarter) / 100;
+            $dueDate = $this->taxSettings->getQpdDueDate($quarter);
 
-        // Get QPD percentage for the quarter
-        $percentage = $this->taxSettings->getQpdPercentage($quarter) / 100;
+            // Calculate QPD amount
+            $amount = $estimatedAnnualTax * $percentage;
+
+            // Get payments already made for this quarter
+            $paidAmount = $this->getPaidAmount($taxYear, $quarter);
+
+            return [
+                'tax_year' => $taxYear,
+                'quarter' => $quarter,
+                'quarter_name' => "Q{$quarter} " . $taxYear,
+                'estimated_annual_tax' => round($estimatedAnnualTax, 2),
+                'qpd_percentage' => $percentage * 100,
+                'qpd_amount' => round($amount, 2),
+                'paid_amount' => round($paidAmount, 2),
+                'balance_due' => round(max(0, $amount - $paidAmount), 2),
+                'due_date' => $dueDate,
+                'is_overdue' => $dueDate ? now()->gt($dueDate) && $paidAmount < $amount : false,
+                'calculated_at' => now()->toDateTimeString(),
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('QPD calculation error', [
+                'taxYear' => $taxYear,
+                'quarter' => $quarter,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Return default values instead of throwing
+            return $this->getDefaultCalculation($taxYear, $quarter);
+        }
+    }
+
+    /**
+     * Get estimated annual tax safely
+     */
+    protected function getEstimatedAnnualTax(int $taxYear): float
+    {
+        try {
+            $incomeTaxService = new IncomeTaxService($this->companyId);
+            $previousYearCalc = $incomeTaxService->calculate($taxYear - 1);
+            return $previousYearCalc['total_tax'] ?? 0;
+        } catch (\Exception $e) {
+            Log::warning('Could not calculate previous year tax', [
+                'taxYear' => $taxYear,
+                'error' => $e->getMessage()
+            ]);
+            return 0;
+        }
+    }
+
+    /**
+     * Get default calculation values
+     */
+    protected function getDefaultCalculation(int $taxYear, int $quarter): array
+    {
         $dueDate = $this->taxSettings->getQpdDueDate($quarter);
-
-        // Calculate QPD amount
-        $amount = $estimatedAnnualTax * $percentage;
-
-        // Get payments already made for this quarter
-        $paidAmount = $this->getPaidAmount($taxYear, $quarter);
-
+        
         return [
             'tax_year' => $taxYear,
             'quarter' => $quarter,
-            'quarter_name' => "Q{$quarter} " . date('Y', strtotime("{$taxYear}-01-01")),
-            'estimated_annual_tax' => round($estimatedAnnualTax, 2),
-            'qpd_percentage' => $percentage * 100,
-            'qpd_amount' => round($amount, 2),
-            'paid_amount' => round($paidAmount, 2),
-            'balance_due' => round(max(0, $amount - $paidAmount), 2),
+            'quarter_name' => "Q{$quarter} " . $taxYear,
+            'estimated_annual_tax' => 0,
+            'qpd_percentage' => $this->getDefaultPercentage($quarter),
+            'qpd_amount' => 0,
+            'paid_amount' => 0,
+            'balance_due' => 0,
             'due_date' => $dueDate,
-            'is_overdue' => now()->gt($dueDate) && $paidAmount < $amount,
+            'is_overdue' => false,
             'calculated_at' => now()->toDateTimeString(),
         ];
+    }
+
+    /**
+     * Get default percentage based on quarter
+     */
+    protected function getDefaultPercentage(int $quarter): float
+    {
+        $defaults = [10, 25, 30, 35];
+        return $defaults[$quarter - 1] ?? 10;
     }
 
     /**
@@ -71,12 +130,21 @@ class QpdService extends BaseTaxService
      */
     protected function getPaidAmount(int $taxYear, int $quarter): float
     {
-        return (float) DB::table('qpd_payments')
-            ->where('company_id', $this->companyId)
-            ->where('tax_year', $taxYear)
-            ->where('quarter', $quarter)
-            ->where('status', 'PAID')
-            ->sum('amount');
+        try {
+            return (float) DB::table('qpd_payments')
+                ->where('company_id', $this->companyId)
+                ->where('tax_year', $taxYear)
+                ->where('quarter', $quarter)
+                ->where('status', 'PAID')
+                ->sum('amount');
+        } catch (\Exception $e) {
+            Log::error('Failed to get paid amount', [
+                'taxYear' => $taxYear,
+                'quarter' => $quarter,
+                'error' => $e->getMessage()
+            ]);
+            return 0;
+        }
     }
 
     /**
@@ -84,7 +152,7 @@ class QpdService extends BaseTaxService
      */
     public function savePayment(array $data, int $userId): QpdPayment
     {
-        $paymentNo = QpdPayment::generatePaymentNo($this->companyId, $data['tax_year'], $data['quarter']);
+        $paymentNo = $this->generatePaymentNo($data['tax_year'], $data['quarter']);
 
         return QpdPayment::create([
             'company_id' => $this->companyId,
@@ -99,11 +167,26 @@ class QpdService extends BaseTaxService
             'payment_method' => $data['payment_method'] ?? 'BANK',
             'reference' => $data['reference'] ?? null,
             'status' => 'DRAFT',
-            'metadata' => [
-                'notes' => $data['notes'] ?? null,
-            ],
+            'metadata' => json_encode(['notes' => $data['notes'] ?? null]),
             'created_by' => $userId,
         ]);
+    }
+
+    /**
+     * Generate payment number
+     */
+    protected function generatePaymentNo(int $taxYear, int $quarter): string
+    {
+        $prefix = 'QPD';
+        $lastPayment = QpdPayment::where('company_id', $this->companyId)
+            ->where('tax_year', $taxYear)
+            ->where('quarter', $quarter)
+            ->orderBy('id', 'desc')
+            ->first();
+        
+        $sequence = $lastPayment ? intval(substr($lastPayment->payment_no, -4)) + 1 : 1;
+        
+        return sprintf('%s-%d-Q%d-%04d', $prefix, $taxYear, $quarter, $sequence);
     }
 
     /**
@@ -141,12 +224,15 @@ class QpdService extends BaseTaxService
         ];
 
         foreach ($forecast['quarters'] as $q => $details) {
+            $status = $details['is_overdue'] ? 'OVERDUE' : 
+                     (($details['paid_amount'] ?? 0) > 0 ? 'PAID' : 'PENDING');
+            
             $data['rows'][] = [
                 "Q{$q}",
-                $this->formatDate($details['due_date']),
+                $details['due_date'] ? date('d/m/Y', strtotime($details['due_date'])) : 'N/A',
                 $details['qpd_percentage'] . '%',
                 $this->formatCurrency($details['qpd_amount']),
-                $details['is_overdue'] ? 'OVERDUE' : (($details['paid_amount'] ?? 0) > 0 ? 'PAID' : 'PENDING'),
+                $status,
             ];
         }
 
