@@ -306,6 +306,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/qpd/forecast', [QpdController::class, 'forecast'])->name('qpd.forecast');
                 Route::get('/qpd/forecast/csv', [QpdController::class, 'downloadForecastCsv'])->name('qpd.forecast.csv');
 
+                // QPD Forecast routes (NEW)
+                Route::get('/qpd/forecast/dashboard', [QpdController::class, 'forecastDashboard'])->name('qpd.forecast.dashboard');
+                Route::get('/qpd/forecast/trial-balance', [QpdController::class, 'forecastTB'])->name('qpd.forecast.tb');
+                Route::get('/qpd/forecast/profit-loss', [QpdController::class, 'forecastPL'])->name('qpd.forecast.pl');
+                Route::get('/qpd/forecast/tax-computation', [QpdController::class, 'forecastTax'])->name('qpd.forecast.tax');
+                Route::get('/qpd/forecast/qpd-estimates', [QpdController::class, 'forecastQPD'])->name('qpd.forecast.qpd');
+                Route::get('/qpd/forecast/profiles', [QpdController::class, 'forecastProfiles'])->name('qpd.forecast.profiles');
+                Route::post('/qpd/forecast/profiles', [QpdController::class, 'storeForecastProfile'])->name('qpd.forecast.profiles.store');
+
                 // Income Tax / ITF12C
                 Route::get('/income', [IncomeTaxController::class, 'index'])->name('income.index');
                 Route::get('/income/create', [IncomeTaxController::class, 'create'])->name('income.create');
@@ -315,6 +324,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/income/{return}/pdf', [IncomeTaxController::class, 'downloadPdf'])->name('income.pdf');
                 Route::get('/income/{return}/csv', [IncomeTaxController::class, 'downloadCsv'])->name('income.csv');
                 Route::get('/income/{return}/print', [IncomeTaxController::class, 'print'])->name('income.print');
+
             });
 
 
@@ -359,7 +369,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('ap/supplier/{supplierId}/open-invoices', [PayablesAllocationController::class, 'supplierOpenInvoices'])->name('ap.open_invoices');
                 Route::post('ap/allocate', [PayablesAllocationController::class, 'store'])->name('ap.allocate.store');
             });
-
+           
+            
             /*
             |--------------------------------------------------------------------------
             | Generic module section routes (used by sidebar/dashboard)

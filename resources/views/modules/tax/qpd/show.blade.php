@@ -19,7 +19,7 @@
                 </button>
             </form>
             @endif
-            <a href="{{ route('tax.qpd.pdf', $payment) }}" 
+            <a href="{{ route('modules.tax.qpd.pdf', $payment) }}" 
                class="px-4 py-2 bg-white/5 hover:bg-white/10 ring-1 ring-white/10 rounded-lg transition-colors">
                 Download ITF12B
             </a>

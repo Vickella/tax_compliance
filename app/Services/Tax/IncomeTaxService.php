@@ -87,7 +87,7 @@ class IncomeTaxService extends BaseTaxService
         $capitalAllowances = $this->calculateCapitalAllowances($startDate, $endDate);
         
         // Step 4: Calculate taxable income
-        $taxableIncome = $incomeResult['total'] - $expenseResult['deductible'] + $expenseResult['addbacks'] - $capitalAllowances;
+       $taxableIncome = $incomeResult['total'] - $expenseResult['total'] + $expenseResult['addbacks'] - $capitalAllowances;
         
         // Step 5: Apply assessed loss brought forward
         $assessedLossBf = $this->getAssessedLossBroughtForward($taxYear);
@@ -117,8 +117,8 @@ class IncomeTaxService extends BaseTaxService
             'assessed_loss_bf' => round($assessedLossBf, 2),
             'taxable_income_after_loss' => round($taxableIncomeAfterLoss, 2),
             'assessed_loss_cf' => round($assessedLossCf, 2),
-            'tax_rate' => $this->taxSettings->getCorporateTaxRate(),
-            'income_tax' => round($incomeTax, 2),
+            'tax_rate' => $this->taxSettings->getCorporateTaxRate() / 100,
+            'income_tax' => round($incomeTax, 4),
             'aids_levy' => round($aidsLevy, 2),
             'total_tax' => round($totalTax, 2),
             'qpd_paid' => round($qpdPayments, 2),
@@ -329,37 +329,39 @@ class IncomeTaxService extends BaseTaxService
      * Save income tax return
      */
     public function saveReturn(array $data, int $userId): IncomeTaxReturn
-    {
-        $returnNo = IncomeTaxReturn::generateReturnNo($this->companyId, $data['tax_year']);
+{
+    $returnNo = IncomeTaxReturn::generateReturnNo($this->companyId, $data['tax_year']);
 
-        return IncomeTaxReturn::create([
-            'company_id' => $this->companyId,
-            'tax_year' => $data['tax_year'],
-            'return_no' => $returnNo,
-            'filing_date' => $data['filing_date'] ?? now(),
-            'status' => $data['status'] ?? 'DRAFT',
-            'total_income' => $data['total_income'],
-            'total_expenses' => $data['total_expenses'],
-            'add_back_amount' => $data['add_back_amount'] ?? 0,
-            'taxable_income' => $data['taxable_income'],
-            'tax_rate' => $data['tax_rate'],
-            'income_tax' => $data['income_tax'],
-            'aids_levy' => $data['aids_levy'] ?? 0,
-            'total_tax' => $data['total_tax'],
-            'qpd_paid' => $data['qpd_paid'] ?? 0,
-            'balance_due' => $data['balance_due'] ?? $data['total_tax'],
-            'assessed_loss_bf' => $data['assessed_loss_bf'] ?? 0,
-            'assessed_loss_cf' => $data['assessed_loss_cf'] ?? 0,
-            'metadata' => [
-                'income_breakdown' => $data['income_breakdown'] ?? [],
-                'expense_breakdown' => $data['expense_breakdown'] ?? [],
-                'addback_breakdown' => $data['addback_breakdown'] ?? [],
-                'capital_allowances' => $data['capital_allowances'] ?? 0,
-                'notes' => $data['notes'] ?? null,
-            ],
-            'created_by' => $userId,
-        ]);
-    }
+    return IncomeTaxReturn::create([
+        'company_id' => $this->companyId,
+        'tax_year' => $data['tax_year'],
+        'return_no' => $returnNo,
+        'period_start' => $data['period_start'] ?? "{$data['tax_year']}-01-01",
+        'period_end' => $data['period_end'] ?? "{$data['tax_year']}-12-31",
+        'filing_date' => $data['filing_date'] ?? now(),
+        'status' => $data['status'] ?? 'DRAFT',
+        'total_income' => $data['total_income'],
+        'total_expenses' => $data['total_expenses'],
+        'add_back_amount' => $data['add_back_amount'] ?? 0,
+        'taxable_income' => $data['taxable_income'],
+        'income_tax_rate' => $data['tax_rate'], // Map tax_rate to income_tax_rate
+        'income_tax_payable' => $data['income_tax'], // Map income_tax to income_tax_payable
+        'aids_levy' => $data['aids_levy'] ?? 0,
+        'total_tax' => $data['total_tax'],
+        'qpd_paid_total' => $data['qpd_paid'] ?? 0, // Map qpd_paid to qpd_paid_total
+        'balance_due' => $data['balance_due'] ?? $data['total_tax'],
+        'assessed_loss_bf' => $data['assessed_loss_bf'] ?? 0,
+        'assessed_loss_cf' => $data['assessed_loss_cf'] ?? 0,
+        'metadata' => json_encode([
+            'income_breakdown' => $data['income_breakdown'] ?? [],
+            'expense_breakdown' => $data['expense_breakdown'] ?? [],
+            'addback_breakdown' => $data['addback_breakdown'] ?? [],
+            'capital_allowances' => $data['capital_allowances'] ?? 0,
+            'notes' => $data['notes'] ?? null,
+        ]),
+        'created_by' => $userId,
+    ]);
+}
 
     /**
      * Generate ITF12C PDF

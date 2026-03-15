@@ -4,6 +4,8 @@ namespace App\Models\Tax;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Company; // Add this import
+use App\Models\User;    // Add this if not already imported
 
 class VatReturn extends Model
 {
@@ -15,41 +17,44 @@ class VatReturn extends Model
         'company_id',
         'period_start',
         'period_end',
-        'return_no',
-        'filing_date',
-        'status',
-        'output_vat',
-        'input_vat',
-        'vat_payable',
         'vat_rate',
-        'output_accounts',
-        'input_accounts',
-        'metadata',
+        'taxable_sales',
+        'output_vat',
+        'taxable_purchases',
+        'input_vat',
+        'net_vat_payable',
+        'notes',
+        'source_snapshot',
+        'period_id',
+        'return_type',
+        'status',
         'submitted_by',
         'submitted_at',
-        'approved_by',
-        'approved_at',
-        'created_at',
-        'updated_at',
+        'output_tax',
+        'input_tax',
+        'net_vat',
+        'generated_at',
     ];
 
     protected $casts = [
         'period_start' => 'date',
         'period_end' => 'date',
-        'filing_date' => 'date',
-        'output_vat' => 'decimal:2',
-        'input_vat' => 'decimal:2',
-        'vat_payable' => 'decimal:2',
-        'vat_rate' => 'decimal:4',
-        'output_accounts' => 'json',
-        'input_accounts' => 'json',
-        'metadata' => 'json',
+        'generated_at' => 'datetime',
         'submitted_at' => 'datetime',
-        'approved_at' => 'datetime',
+        'vat_rate' => 'decimal:4',
+        'taxable_sales' => 'decimal:2',
+        'output_vat' => 'decimal:2',
+        'taxable_purchases' => 'decimal:2',
+        'input_vat' => 'decimal:2',
+        'net_vat_payable' => 'decimal:2',
+        'output_tax' => 'decimal:2',
+        'input_tax' => 'decimal:2',
+        'net_vat' => 'decimal:2',
     ];
 
     protected $attributes = [
         'status' => 'DRAFT',
+        'return_type' => 'VAT7',
     ];
 
     /**
@@ -57,7 +62,15 @@ class VatReturn extends Model
      */
     public function company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Company::class); // Now it will use App\Models\Company
+    }
+
+    /**
+     * Get the period that owns this return
+     */
+    public function period()
+    {
+        return $this->belongsTo(Period::class); // Make sure Period model exists or comment out
     }
 
     /**
@@ -69,14 +82,6 @@ class VatReturn extends Model
     }
 
     /**
-     * Get the user who approved this return
-     */
-    public function approvedBy()
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    /**
      * Get the period name (e.g., "January 2026")
      */
     public function getPeriodNameAttribute(): string
@@ -85,19 +90,19 @@ class VatReturn extends Model
     }
 
     /**
-     * Check if return is for a specific month
-     */
-    public function isForMonth(int $year, int $month): bool
-    {
-        return $this->period_start->year == $year && $this->period_start->month == $month;
-    }
-
-    /**
      * Calculate tax fraction
      */
     public function getTaxFractionAttribute(): float
     {
         return $this->vat_rate / (100 + $this->vat_rate);
+    }
+
+    /**
+     * Get net VAT (alias for net_vat_payable)
+     */
+    public function getVatPayableAttribute(): float
+    {
+        return $this->net_vat_payable ?? $this->net_vat ?? 0;
     }
 
     /**
@@ -117,22 +122,10 @@ class VatReturn extends Model
     }
 
     /**
-     * Generate return number
+     * Scope by return type
      */
-    public static function generateReturnNo(int $companyId, string $periodStart): string
+    public function scopeOfType($query, $type)
     {
-        $prefix = 'VAT';
-        $year = date('Y', strtotime($periodStart));
-        $month = date('m', strtotime($periodStart));
-        
-        $lastReturn = self::where('company_id', $companyId)
-            ->whereYear('period_start', $year)
-            ->whereMonth('period_start', $month)
-            ->orderBy('id', 'desc')
-            ->first();
-        
-        $sequence = $lastReturn ? intval(substr($lastReturn->return_no, -2)) + 1 : 1;
-        
-        return sprintf('%s-%s%s-%02d', $prefix, $year, $month, $sequence);
+        return $query->where('return_type', $type);
     }
 }

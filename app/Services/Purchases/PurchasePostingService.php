@@ -3,100 +3,114 @@
 namespace App\Services\Purchases;
 
 use App\Models\ChartOfAccount;
-use App\Models\JournalEntry;
-use App\Models\JournalLine;
 use App\Models\PurchaseInvoice;
+use App\Models\Item;
+use App\Services\Accounting\JournalPostingService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PurchasePostingService
 {
-    public function post(PurchaseInvoice $inv, int $userId): void
+    public function __construct(
+        private JournalPostingService $posting
+    ) {}
+
+    public function submit(PurchaseInvoice $invoice, int $userId): void
     {
-        DB::transaction(function () use ($inv, $userId) {
+        if ($invoice->status !== 'DRAFT') {
+            throw new \RuntimeException('Only DRAFT invoices can be submitted.');
+        }
 
-            if ($inv->status !== 'SUBMITTED') {
-                throw new \RuntimeException('Purchase invoice must be SUBMITTED before posting.');
-            }
+        $invoice->load(['lines', 'lines.item']);
 
-            // Accounts - FIXED WITH YOUR ACTUAL CODES
-            $ap = $this->coa($inv->company_id, '2100');      // Accounts Payable (control) - from your chart
-            $invAcc = $this->coa($inv->company_id, '1300');  // Inventory - from your chart (code 1300)
-            $vatInput = $this->coa($inv->company_id, '2210-VAT-IN'); // VAT Input (Recoverable) - from your chart
-            
-            // Note: Your VAT Input account is '2210-VAT-IN' (from row #36 in your chart)
-            // If that doesn't exist, fallback to '2210' (from row #39)
+        DB::transaction(function () use ($invoice, $userId) {
+            $companyId = (int)$invoice->company_id;
 
-            $je = JournalEntry::create([
-                'company_id' => $inv->company_id,
-                'entry_no' => $this->nextJeNo($inv->company_id, $inv->posting_date),
-                'posting_date' => $inv->posting_date,
-                'memo' => "Purchase Invoice {$inv->invoice_no}",
-                'status' => 'POSTED',
-                'source_type' => 'PurchaseInvoice',
-                'source_id' => $inv->id,
-                'currency' => $inv->currency,
-                'exchange_rate' => $inv->exchange_rate ?? 1,
-                'created_by' => $userId,
-                'posted_by' => $userId,
-                'posted_at' => now(),
-            ]);
+            // Get account IDs
+            $ap       = $this->getAccount($companyId, '2100');      // Accounts Payable
+            $inventory = $this->getAccount($companyId, '1300');    // Inventory
+            $vatInput = $this->getAccount($companyId, '2210-VAT-IN'); // VAT Input
+            $purchase = $this->getAccount($companyId, '5000');      // Purchases/COGS
 
-            // Dr Inventory (subtotal)
-            JournalLine::create([
-                'journal_entry_id' => $je->id,
-                'account_id' => $invAcc->id,
-                'description' => "Inventory / Purchases for {$inv->invoice_no}",
-                'debit' => $inv->subtotal,
-                'credit' => 0,
-                'party_type' => 'NONE',
-            ]);
+            $postingDate = $invoice->posting_date->format('Y-m-d');
+            $currency = $invoice->currency;
+            $rate = (float)($invoice->exchange_rate ?? 1);
 
-            // Dr VAT Input (input VAT)
-            if ((float)$inv->vat_amount > 0) {
-                JournalLine::create([
-                    'journal_entry_id' => $je->id,
-                    'account_id' => $vatInput->id,
-                    'description' => "VAT Input for {$inv->invoice_no}",
-                    'debit' => $inv->vat_amount,
-                    'credit' => 0,
-                    'party_type' => 'NONE',
-                ]);
-            }
+            // Build ALL journal lines
+            $lines = [];
 
-            // Cr Accounts Payable (gross)
-            JournalLine::create([
-                'journal_entry_id' => $je->id,
-                'account_id' => $ap->id,
-                'description' => "Payable to supplier for {$inv->invoice_no}",
-                'debit' => 0,
-                'credit' => $inv->total,
+            // DR Purchases/Expense (subtotal)
+            $lines[] = [
+                'account_id' => $purchase->id,
+                'description' => "Purchase - {$invoice->invoice_no}",
+                'debit' => (float)$invoice->subtotal,
+                'credit' => 0.0,
                 'party_type' => 'SUPPLIER',
-                'party_id' => $inv->supplier_id,
+                'party_id' => (int)$invoice->supplier_id,
+            ];
+
+            // DR VAT Input (if applicable)
+            if ((float)$invoice->vat_amount > 0) {
+                $lines[] = [
+                    'account_id' => $vatInput->id,
+                    'description' => "VAT Input - {$invoice->invoice_no}",
+                    'debit' => (float)$invoice->vat_amount,
+                    'credit' => 0.0,
+                    'party_type' => 'SUPPLIER',
+                    'party_id' => (int)$invoice->supplier_id,
+                ];
+            }
+
+            // CR Accounts Payable (total)
+            $lines[] = [
+                'account_id' => $ap->id,
+                'description' => "AP - {$invoice->invoice_no}",
+                'debit' => 0.0,
+                'credit' => (float)$invoice->total,
+                'party_type' => 'SUPPLIER',
+                'party_id' => (int)$invoice->supplier_id,
+            ];
+
+            // Create and POST journal entry (THIS CREATES GL ENTRIES!)
+            $journalEntry = $this->posting->createPostedJournalWithLines(
+                $companyId,
+                $postingDate,
+                "Purchase Invoice {$invoice->invoice_no}",
+                'PurchaseInvoice',
+                (int)$invoice->id,
+                $currency,
+                $rate,
+                $userId,
+                $lines
+            );
+
+            // Update invoice status
+            $invoice->status = 'SUBMITTED';
+            $invoice->submitted_by = $userId;
+            $invoice->submitted_at = now();
+            $invoice->journal_entry_id = $journalEntry->id;
+            $invoice->save();
+
+            Log::info('Purchase invoice submitted with GL entries', [
+                'invoice_no' => $invoice->invoice_no,
+                'journal_id' => $journalEntry->id,
+                'lines_count' => count($lines)
             ]);
         });
     }
 
-    private function coa(int $companyId, string $code): ChartOfAccount
+    private function getAccount(int $companyId, string $code): ChartOfAccount
     {
-        return ChartOfAccount::query()
+        $account = ChartOfAccount::query()
             ->where('company_id', $companyId)
             ->where('code', $code)
             ->where('is_active', 1)
-            ->firstOrFail();
-    }
+            ->first();
 
-    private function nextJeNo(int $companyId, string $postingDate): string
-    {
-        $ym = now()->parse($postingDate)->format('Ym');
+        if (!$account) {
+            throw new \RuntimeException("Account code {$code} not found for company {$companyId}");
+        }
 
-        $last = JournalEntry::query()
-            ->where('company_id', $companyId)
-            ->where('entry_no', 'like', "JE-{$ym}-%")
-            ->lockForUpdate()
-            ->orderByDesc('entry_no')
-            ->value('entry_no');
-
-        $next = $last ? ((int)substr($last, -6)) + 1 : 1;
-        return sprintf("JE-%s-%06d", $ym, $next);
+        return $account;
     }
 }

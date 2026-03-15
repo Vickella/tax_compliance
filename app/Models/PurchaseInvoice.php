@@ -25,6 +25,7 @@ class PurchaseInvoice extends Model
         'subtotal',
         'vat_amount',
         'total',
+        'journal_entry_id',
         'remarks',
         'created_by',
         'submitted_by',
@@ -54,5 +55,10 @@ class PurchaseInvoice extends Model
     public function scopeForCompany($query, int $companyId)
     {
         return $query->where('company_id', $companyId);
+    }
+
+    public function journalEntry()
+    {
+    return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
     }
 }

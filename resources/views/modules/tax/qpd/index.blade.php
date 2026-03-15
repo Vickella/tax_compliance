@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('page_title', 'QPD Payments')
+@section('page_title', 'QPD Payments & Forecast')
 
 @section('content')
 <div class="max-w-7xl mx-auto">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h2 class="text-xl font-semibold text-white">Provisional Tax Payments (QPD)</h2>
-            <p class="text-sm text-slate-400">ITF12B - Quarterly Payment Dates</p>
+            <h2 class="text-xl font-semibold text-white">Provisional Tax (QPD)</h2>
+            <p class="text-sm text-slate-400">ITF12B - Quarterly Payments & Forecast</p>
         </div>
         <div class="flex gap-3">
             <form method="GET" class="flex gap-2">
@@ -20,17 +20,21 @@
                     @endfor
                 </select>
             </form>
-            <a href="{{ route('modules.tax.qpd.forecast') }}" 
-               class="px-4 py-2 bg-white/10 hover:bg-white/15 ring-1 ring-white/10 rounded-lg transition-colors">
-                View Forecast
+            <a href="{{ route('modules.tax.qpd.forecast.dashboard', ['year' => $taxYear]) }}" 
+               class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 ring-1 ring-indigo-500/30 rounded-lg">
+                📊 Full Forecast
+            </a>
+            <a href="{{ route('modules.tax.qpd.create', ['tax_year' => $taxYear]) }}" 
+               class="px-4 py-2 bg-white/10 hover:bg-white/15 ring-1 ring-white/10 rounded-lg">
+                + New Payment
             </a>
         </div>
     </div>
 
-    {{-- QPD Forecast Cards --}}
-    @if(isset($forecast) && isset($forecast['quarters']))
+    {{-- QPD Estimates Cards --}}
+    @if(isset($qpdEstimates) && count($qpdEstimates) > 0)
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        @foreach($forecast['quarters'] as $q => $details)
+        @foreach($qpdEstimates as $q => $details)
         <div class="bg-black/20 rounded-xl ring-1 ring-white/10 p-4">
             <div class="flex justify-between items-start mb-2">
                 <div>
@@ -38,17 +42,17 @@
                     <div class="text-sm font-semibold text-white">Due: {{ \Carbon\Carbon::parse($details['due_date'])->format('d M') }}</div>
                 </div>
                 <span class="px-2 py-1 rounded-full text-xs 
-                    @if($details['is_overdue']) bg-rose-600/20 text-rose-300
-                    @elseif(($details['paid_amount'] ?? 0) > 0) bg-emerald-600/20 text-emerald-300
+                    @if(isset($details['is_overdue']) && $details['is_overdue'] && ($details['paid_amount'] ?? 0) < $details['amount']) bg-rose-600/20 text-rose-300
+                    @elseif(($details['paid_amount'] ?? 0) >= $details['amount']) bg-emerald-600/20 text-emerald-300
                     @else bg-amber-600/20 text-amber-300
                     @endif">
-                    {{ ($details['paid_amount'] ?? 0) > 0 ? 'PAID' : ($details['is_overdue'] ? 'OVERDUE' : 'PENDING') }}
+                    {{ ($details['paid_amount'] ?? 0) >= $details['amount'] ? 'PAID' : (isset($details['is_overdue']) && $details['is_overdue'] ? 'OVERDUE' : 'PENDING') }}
                 </span>
             </div>
             <div class="mt-2 space-y-1">
                 <div class="flex justify-between text-sm">
-                    <span class="text-slate-400">Amount:</span>
-                    <span class="text-white font-semibold">${{ number_format($details['qpd_amount'], 2) }}</span>
+                    <span class="text-slate-400">Estimate:</span>
+                    <span class="text-white font-semibold">${{ number_format($details['amount'], 2) }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-slate-400">Paid:</span>
@@ -61,7 +65,7 @@
                 </div>
                 @endif
             </div>
-            @if(($details['balance_due'] ?? 0) > 0 && !($details['is_overdue'] ?? false))
+            @if(($details['balance_due'] ?? 0) > 0)
             <a href="{{ route('modules.tax.qpd.create', ['tax_year' => $taxYear, 'quarter' => $q]) }}" 
                class="mt-3 block w-full text-center px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-sm rounded-lg transition-colors">
                 Make Payment
@@ -69,6 +73,28 @@
             @endif
         </div>
         @endforeach
+    </div>
+
+    {{-- Estimated Annual Summary --}}
+    <div class="bg-indigo-600/10 rounded-xl ring-1 ring-indigo-500/30 p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <div class="text-xs text-slate-400">Estimated Annual Tax</div>
+                <div class="text-xl font-bold text-indigo-400">${{ number_format($estimatedAnnualTax ?? 0, 2) }}</div>
+            </div>
+            <div>
+                <div class="text-xs text-slate-400">Total QPD Due</div>
+                <div class="text-xl font-bold text-white">${{ number_format($totalQpd ?? 0, 2) }}</div>
+            </div>
+            <div>
+                <div class="text-xs text-slate-400">Based on</div>
+                <div class="text-sm text-white">{{ isset($calculatedAt) ? \Carbon\Carbon::parse($calculatedAt)->format('d M Y') : 'Current GL' }}</div>
+            </div>
+        </div>
+    </div>
+    @else
+    <div class="bg-black/20 rounded-xl ring-1 ring-white/10 p-8 mb-6 text-center">
+        <p class="text-slate-400">No forecast data available for {{ $taxYear }}</p>
     </div>
     @endif
 
