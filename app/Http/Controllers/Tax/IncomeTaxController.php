@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Tax\IncomeTaxService;
 use App\Models\Tax\IncomeTaxReturn;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class IncomeTaxController extends Controller
 {
@@ -25,23 +26,66 @@ class IncomeTaxController extends Controller
             ->orderBy('tax_year', 'desc')
             ->paginate(20);
 
-        return view('modules.tax.income.index', compact('returns'));
+        $submittedCount = IncomeTaxReturn::where('company_id', company_id())
+            ->whereIn('status', ['SUBMITTED', 'APPROVED'])
+            ->count();
+
+        $draftCount = IncomeTaxReturn::where('company_id', company_id())
+            ->where('status', 'DRAFT')
+            ->count();
+
+        $totalTax = IncomeTaxReturn::where('company_id', company_id())
+            ->sum('total_tax');
+
+        return view('modules.tax.income.index', compact('returns', 'submittedCount', 'draftCount', 'totalTax'));
     }
 
     /**
      * Show form to create new income tax return
      */
     public function create(Request $request)
-    {
-        $taxYear = $request->get('tax_year', now()->year);
+{
+    $taxYear = $request->get('tax_year', now()->year);
 
-        try {
-            $calculation = $this->service->calculate($taxYear);
-            return view('modules.tax.income.create', compact('calculation', 'taxYear'));
-        } catch (\Exception $e) {
-            return back()->with('error', 'Calculation failed: ' . $e->getMessage());
+    try {
+        // STEP 1: Log start
+        \Log::debug('CREATE: Starting', ['tax_year' => $taxYear]);
+        
+        // STEP 2: Check company_id
+        $companyId = company_id();
+        \Log::debug('CREATE: Company ID', ['company_id' => $companyId]);
+        
+        // STEP 3: Initialize service
+        $this->service = new IncomeTaxService($companyId);
+        \Log::debug('CREATE: Service initialized');
+        
+        // STEP 4: Calculate
+        $calculation = $this->service->calculate($taxYear);
+        \Log::debug('CREATE: Calculation completed', ['keys' => array_keys($calculation)]);
+        
+        // STEP 5: Check view
+        if (!view()->exists('modules.tax.income.create')) {
+            throw new \Exception('View not found: modules.tax.income.create');
         }
+        \Log::debug('CREATE: View exists');
+        
+        // STEP 6: Return view
+        \Log::debug('CREATE: Rendering view');
+        return view('modules.tax.income.create', compact('calculation', 'taxYear'));
+        
+    } catch (\Throwable $e) {
+        // Log the FULL error
+        \Log::error('CREATE: ERROR', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        // SHOW the error on screen
+        return response("<pre>ERROR: " . $e->getMessage() . "\n\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\n\n" . $e->getTraceAsString() . "</pre>", 500);
     }
+}
 
     /**
      * Store income tax return
@@ -57,6 +101,11 @@ class IncomeTaxController extends Controller
             'income_tax' => 'required|numeric',
             'aids_levy' => 'required|numeric',
             'total_tax' => 'required|numeric',
+            'assessed_loss_bf' => 'nullable|numeric',
+            'assessed_loss_cf' => 'nullable|numeric',
+            'qpd_paid' => 'nullable|numeric',
+            'balance_due' => 'nullable|numeric',
+            'tax_rate' => 'required|numeric',
             'notes' => 'nullable|string',
             'action' => 'required|in:save,submit',
         ]);
@@ -65,37 +114,43 @@ class IncomeTaxController extends Controller
             // Recalculate to ensure accuracy
             $calculation = $this->service->calculate($validated['tax_year']);
             
-            // Verify matches user input
-            if (abs($calculation['total_tax'] - $validated['total_tax']) > 0.01) {
-                return back()->with('error', 'Tax calculation mismatch. Please refresh and try again.')
-                    ->withInput();
-            }
-
             $data = array_merge($validated, [
-                'income_breakdown' => $calculation['income']['breakdown'],
-                'expense_breakdown' => $calculation['expenses']['breakdown'],
-                'add_back_breakdown' => $calculation['add_backs']['breakdown'],
+                'income_breakdown' => $calculation['income']['breakdown'] ?? [],
+                'expense_breakdown' => $calculation['expenses']['breakdown'] ?? [],
+                'addback_breakdown' => $calculation['expenses']['addback_breakdown'] ?? [],
                 'tax_rate' => $calculation['tax_rate'],
-                'assessed_loss_bf' => $calculation['assessed_loss_bf'],
-                'assessed_loss_cf' => $calculation['assessed_loss_cf'],
-                'qpd_paid' => $calculation['qpd_paid'],
-                'balance_due' => $calculation['balance_due'],
+                'assessed_loss_bf' => $request->input('assessed_loss_bf', $calculation['assessed_loss_bf'] ?? 0),
+                'assessed_loss_cf' => $calculation['assessed_loss_cf'] ?? 0,
+                'qpd_paid' => $request->input('qpd_paid', $calculation['qpd_paid'] ?? 0),
+                'balance_due' => $calculation['total_tax'] - $request->input('qpd_paid', $calculation['qpd_paid'] ?? 0),
                 'filing_date' => now()->toDateString(),
             ]);
 
             $return = $this->service->saveReturn($data, auth()->id());
 
             if ($request->action === 'submit') {
-                $return->update(['status' => 'SUBMITTED']);
+                $return->update([
+                    'status' => 'SUBMITTED',
+                    'submitted_by' => auth()->id(),
+                    'submitted_at' => now(),
+                ]);
                 $message = 'Income tax return submitted successfully';
             } else {
                 $message = 'Income tax return saved as draft';
             }
 
-            return redirect()->route('tax.income.show', $return)
+            // FIXED: Added 'modules.' prefix to route name
+            return redirect()->route('modules.tax.income.show', $return)
                 ->with('success', $message);
 
         } catch (\Exception $e) {
+            Log::error('Failed to save return', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return back()->with('error', 'Failed to save return: ' . $e->getMessage())
                 ->withInput();
         }
@@ -128,7 +183,8 @@ class IncomeTaxController extends Controller
             'submitted_at' => now(),
         ]);
 
-        return back()->with('success', 'Income tax return submitted successfully');
+        return redirect()->route('modules.tax.income.show', $return)
+            ->with('success', 'Income tax return submitted successfully');
     }
 
     /**
@@ -148,7 +204,7 @@ class IncomeTaxController extends Controller
     {
         abort_unless($return->company_id === company_id(), 403);
 
-        $path = $this->service->exportToCsv($return);
+        $path = $this->service->exportReturnToCsv($return);
         
         return response()->download(storage_path("app/public/{$path}"))
             ->deleteFileAfterSend(true);

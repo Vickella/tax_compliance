@@ -4,6 +4,9 @@ namespace App\Models\Tax;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Company;
+use App\Models\User;
+use App\Models\ChartOfAccount;
 
 class Itf12bProjection extends Model
 {
@@ -13,7 +16,11 @@ class Itf12bProjection extends Model
     
     protected $fillable = [
         'company_id',
+        'account_id',
         'tax_year',
+        'forecast_method',
+        'fixed_amount',
+        'growth_rate',
         'projection_date',
         'estimated_annual_profit',
         'estimated_tax',
@@ -28,13 +35,13 @@ class Itf12bProjection extends Model
         'notes',
         'metadata',
         'created_by',
-        'created_at',
-        'updated_at',
     ];
 
     protected $casts = [
+        'account_id' => 'integer',
         'tax_year' => 'integer',
-        'projection_date' => 'date',
+        'fixed_amount' => 'decimal:2',
+        'growth_rate' => 'decimal:2',
         'estimated_annual_profit' => 'decimal:2',
         'estimated_tax' => 'decimal:2',
         'q1_profit' => 'decimal:2',
@@ -45,6 +52,7 @@ class Itf12bProjection extends Model
         'q2_tax' => 'decimal:2',
         'q3_tax' => 'decimal:2',
         'q4_tax' => 'decimal:2',
+        'projection_date' => 'date',
         'metadata' => 'json',
     ];
 
@@ -57,6 +65,14 @@ class Itf12bProjection extends Model
     }
 
     /**
+     * Get the account that this projection is for
+     */
+    public function account()
+    {
+        return $this->belongsTo(ChartOfAccount::class, 'account_id');
+    }
+
+    /**
      * Get the user who created this projection
      */
     public function createdBy()
@@ -65,46 +81,41 @@ class Itf12bProjection extends Model
     }
 
     /**
-     * Calculate total projected profit
+     * Calculate total projected profit for all quarters
      */
     public function getTotalProjectedProfitAttribute(): float
     {
-        return $this->q1_profit + $this->q2_profit + $this->q3_profit + $this->q4_profit;
+        return (float)($this->q1_profit + $this->q2_profit + $this->q3_profit + $this->q4_profit);
     }
 
     /**
-     * Calculate total projected tax
+     * Calculate total projected tax for all quarters
      */
     public function getTotalProjectedTaxAttribute(): float
     {
-        return $this->q1_tax + $this->q2_tax + $this->q3_tax + $this->q4_tax;
+        return (float)($this->q1_tax + $this->q2_tax + $this->q3_tax + $this->q4_tax);
     }
 
     /**
-     * Check if projection matches estimate
+     * Check if this is a company-level projection (no specific account)
      */
-    public function isMatchingEstimate(): bool
+    public function getIsCompanyLevelAttribute(): bool
     {
-        return abs($this->totalProjectedProfit - $this->estimated_annual_profit) < 0.01;
+        return is_null($this->account_id);
     }
 
     /**
-     * Get variance from estimate
+     * Get forecast method display name
      */
-    public function getVarianceAttribute(): float
+    public function getMethodDisplayAttribute(): string
     {
-        return round($this->totalProjectedProfit - $this->estimated_annual_profit, 2);
-    }
-
-    /**
-     * Get variance percentage
-     */
-    public function getVariancePercentageAttribute(): float
-    {
-        if ($this->estimated_annual_profit == 0) {
-            return 0;
-        }
-        return round(($this->variance / $this->estimated_annual_profit) * 100, 2);
+        $methods = [
+            'linear' => 'Linear Growth',
+            'fixed' => 'Fixed Amount',
+            'average' => 'Monthly Average',
+        ];
+        
+        return $methods[$this->forecast_method] ?? ucfirst($this->forecast_method);
     }
 
     /**
@@ -116,13 +127,62 @@ class Itf12bProjection extends Model
     }
 
     /**
-     * Get the latest projection for a year
+     * Scope by account
      */
-    public static function latestForYear(int $companyId, int $year): ?self
+    public function scopeForAccount($query, $accountId)
+    {
+        return $query->where('account_id', $accountId);
+    }
+
+    /**
+     * Scope for company-level projections (no account)
+     */
+    public function scopeCompanyLevel($query)
+    {
+        return $query->whereNull('account_id');
+    }
+
+    /**
+     * Scope for account-specific projections
+     */
+    public function scopeAccountLevel($query)
+    {
+        return $query->whereNotNull('account_id');
+    }
+
+    /**
+     * Get the latest projection for a specific account and year
+     */
+    public static function latestForAccount(int $companyId, int $accountId, int $year): ?self
     {
         return self::where('company_id', $companyId)
+            ->where('account_id', $accountId)
             ->where('tax_year', $year)
             ->orderBy('projection_date', 'desc')
             ->first();
+    }
+
+    /**
+     * Get the latest company-level projection for a year
+     */
+    public static function latestForCompany(int $companyId, int $year): ?self
+    {
+        return self::where('company_id', $companyId)
+            ->whereNull('account_id')
+            ->where('tax_year', $year)
+            ->orderBy('projection_date', 'desc')
+            ->first();
+    }
+
+    /**
+     * Get all active forecast profiles for a year
+     */
+    public static function getActiveProfiles(int $companyId, int $year): \Illuminate\Support\Collection
+    {
+        return self::where('company_id', $companyId)
+            ->where('tax_year', $year)
+            ->with('account')
+            ->orderBy('account_id')
+            ->get();
     }
 }

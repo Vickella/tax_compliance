@@ -12,7 +12,7 @@ class PurchaseTaxCalculator
         $subtotal = 0.0;
         $vatTotal = 0.0;
 
-        $defaultVat = (float) config('tax.vat_rate_default', 15);
+        $defaultVat = (float) config('tax.vat_rate_default', 15.5);
 
         foreach ($lines as $l) {
             $itemId = (int)($l['item_id'] ?? 0);

@@ -16,7 +16,7 @@
         <input type="hidden" name="vat_rate" value="{{ $calculation['vat_rate'] }}">
         <input type="hidden" name="output_vat" value="{{ $calculation['output_vat'] }}">
         <input type="hidden" name="input_vat" value="{{ $calculation['input_vat'] }}">
-        <input type="hidden" name="vat_payable" value="{{ $calculation['vat_payable'] }}">
+        <input type="hidden" name="vat_payable" value="{{ $calculation['net_vat_payable'] ?? $calculation['vat_payable'] ?? 0 }}">
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {{-- Left Column - Output VAT --}}
@@ -100,10 +100,13 @@
 
                         <div class="border-t border-white/10 my-4"></div>
 
-                        <div class="p-4 rounded-lg {{ $calculation['vat_payable'] > 0 ? 'bg-amber-600/20' : 'bg-emerald-600/20' }}">
-                            <div class="text-xs text-slate-400">VAT {{ $calculation['vat_payable'] > 0 ? 'Payable' : 'Refundable' }}</div>
-                            <div class="text-2xl font-bold {{ $calculation['vat_payable'] > 0 ? 'text-amber-400' : 'text-emerald-400' }}">
-                                ${{ number_format(abs($calculation['vat_payable']), 2) }}
+                        @php
+                            $netPayable = $calculation['net_vat_payable'] ?? $calculation['vat_payable'] ?? 0;
+                        @endphp
+                        <div class="p-4 rounded-lg {{ $netPayable > 0 ? 'bg-amber-600/20' : 'bg-emerald-600/20' }}">
+                            <div class="text-xs text-slate-400">VAT {{ $netPayable > 0 ? 'Payable' : 'Refundable' }}</div>
+                            <div class="text-2xl font-bold {{ $netPayable > 0 ? 'text-amber-400' : 'text-emerald-400' }}">
+                                ${{ number_format(abs($netPayable), 2) }}
                             </div>
                         </div>
                     </div>
@@ -116,7 +119,7 @@
             <label class="block text-xs text-slate-400 mb-1">Notes / Comments</label>
             <textarea name="notes" rows="2" 
                       class="w-full px-3 py-2 rounded-lg bg-black/30 text-white border border-white/10 focus:border-indigo-500 outline-none"
-                      placeholder="Any additional notes about this return..."></textarea>
+                      placeholder="Any additional notes about this return...">{{ old('notes') }}</textarea>
         </div>
 
         {{-- Form Actions --}}
@@ -140,3 +143,40 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const saveBtn = document.querySelector('button[value="save"]');
+    const submitBtn = document.querySelector('button[value="submit"]');
+    
+    console.log('Form found:', !!form);
+    console.log('Save button found:', !!saveBtn);
+    console.log('Submit button found:', !!submitBtn);
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            console.log('Form submitting...');
+            console.log('Action:', new FormData(this).get('action'));
+            console.log('Period:', new FormData(this).get('period_start'), 'to', new FormData(this).get('period_end'));
+            
+            // Don't prevent default, just log
+        });
+    }
+    
+    // Also log any flash messages
+    @if(session('error'))
+        console.error('Flash error:', '{{ session('error') }}');
+    @endif
+    
+    @if(session('success'))
+        console.log('Flash success:', '{{ session('success') }}');
+    @endif
+    
+    @if($errors->any())
+        console.error('Validation errors:', @json($errors->all()));
+    @endif
+});
+</script>
+@endpush

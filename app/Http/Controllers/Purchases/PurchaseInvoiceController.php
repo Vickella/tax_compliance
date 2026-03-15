@@ -9,6 +9,7 @@ use App\Models\PurchaseInvoice;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Services\Purchases\PurchaseInvoiceService;
+use App\Services\Purchases\PurchasePostingService;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseInvoiceController extends Controller
@@ -109,16 +110,26 @@ class PurchaseInvoiceController extends Controller
         });
     }
 
-    public function submit(PurchaseInvoice $invoice)
-    {
-        abort_unless((int)$invoice->company_id === company_id(), 404);
+   public function submit(PurchaseInvoice $invoice, PurchasePostingService $service)
+{
+    abort_unless((int)$invoice->company_id === company_id(), 404);
 
-        return DB::transaction(function () use ($invoice) {
-            $this->service->submit($invoice, auth()->id());
-            return redirect()->route('modules.purchases.invoices.show', $invoice)
-                ->with('success', 'Purchase invoice submitted.');
-        });
+    try {
+        $service->submit($invoice, auth()->id());
+        
+        return redirect()
+            ->route('modules.purchases.invoices.show', $invoice)
+            ->with('success', 'Purchase invoice submitted and posted to GL successfully.');
+            
+    } catch (\Exception $e) {
+        Log::error('Purchase invoice submission failed', [
+            'invoice_id' => $invoice->id,
+            'error' => $e->getMessage()
+        ]);
+        
+        return back()->with('error', 'Failed to submit invoice: ' . $e->getMessage());
     }
+}
 
     public function cancel(PurchaseInvoice $invoice)
     {

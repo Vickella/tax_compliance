@@ -16,7 +16,7 @@
         <input type="hidden" name="vat_rate" value="<?php echo e($calculation['vat_rate']); ?>">
         <input type="hidden" name="output_vat" value="<?php echo e($calculation['output_vat']); ?>">
         <input type="hidden" name="input_vat" value="<?php echo e($calculation['input_vat']); ?>">
-        <input type="hidden" name="vat_payable" value="<?php echo e($calculation['vat_payable']); ?>">
+        <input type="hidden" name="vat_payable" value="<?php echo e($calculation['net_vat_payable'] ?? $calculation['vat_payable'] ?? 0); ?>">
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -100,10 +100,13 @@
 
                         <div class="border-t border-white/10 my-4"></div>
 
-                        <div class="p-4 rounded-lg <?php echo e($calculation['vat_payable'] > 0 ? 'bg-amber-600/20' : 'bg-emerald-600/20'); ?>">
-                            <div class="text-xs text-slate-400">VAT <?php echo e($calculation['vat_payable'] > 0 ? 'Payable' : 'Refundable'); ?></div>
-                            <div class="text-2xl font-bold <?php echo e($calculation['vat_payable'] > 0 ? 'text-amber-400' : 'text-emerald-400'); ?>">
-                                $<?php echo e(number_format(abs($calculation['vat_payable']), 2)); ?>
+                        <?php
+                            $netPayable = $calculation['net_vat_payable'] ?? $calculation['vat_payable'] ?? 0;
+                        ?>
+                        <div class="p-4 rounded-lg <?php echo e($netPayable > 0 ? 'bg-amber-600/20' : 'bg-emerald-600/20'); ?>">
+                            <div class="text-xs text-slate-400">VAT <?php echo e($netPayable > 0 ? 'Payable' : 'Refundable'); ?></div>
+                            <div class="text-2xl font-bold <?php echo e($netPayable > 0 ? 'text-amber-400' : 'text-emerald-400'); ?>">
+                                $<?php echo e(number_format(abs($netPayable), 2)); ?>
 
                             </div>
                         </div>
@@ -117,7 +120,7 @@
             <label class="block text-xs text-slate-400 mb-1">Notes / Comments</label>
             <textarea name="notes" rows="2" 
                       class="w-full px-3 py-2 rounded-lg bg-black/30 text-white border border-white/10 focus:border-indigo-500 outline-none"
-                      placeholder="Any additional notes about this return..."></textarea>
+                      placeholder="Any additional notes about this return..."><?php echo e(old('notes')); ?></textarea>
         </div>
 
         
@@ -141,4 +144,41 @@
     </form>
 </div>
 <?php $__env->stopSection(); ?>
+
+<?php $__env->startPush('scripts'); ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const saveBtn = document.querySelector('button[value="save"]');
+    const submitBtn = document.querySelector('button[value="submit"]');
+    
+    console.log('Form found:', !!form);
+    console.log('Save button found:', !!saveBtn);
+    console.log('Submit button found:', !!submitBtn);
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            console.log('Form submitting...');
+            console.log('Action:', new FormData(this).get('action'));
+            console.log('Period:', new FormData(this).get('period_start'), 'to', new FormData(this).get('period_end'));
+            
+            // Don't prevent default, just log
+        });
+    }
+    
+    // Also log any flash messages
+    <?php if(session('error')): ?>
+        console.error('Flash error:', '<?php echo e(session('error')); ?>');
+    <?php endif; ?>
+    
+    <?php if(session('success')): ?>
+        console.log('Flash success:', '<?php echo e(session('success')); ?>');
+    <?php endif; ?>
+    
+    <?php if($errors->any()): ?>
+        console.error('Validation errors:', <?php echo json_encode($errors->all(), 15, 512) ?>);
+    <?php endif; ?>
+});
+</script>
+<?php $__env->stopPush(); ?>
 <?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Users\USER\Desktop\Victor\tax_compliance\resources\views/modules/tax/vat/create.blade.php ENDPATH**/ ?>

@@ -8,14 +8,20 @@
     <div class="flex justify-between items-center mb-6">
         <div>
             <h2 class="text-xl font-semibold text-white">Income Tax Return {{ $return->return_no }}</h2>
-            <p class="text-sm text-slate-400">Tax Year {{ $return->tax_year }} • Filed {{ $return->filing_date->format('d M Y') }}</p>
+            <p class="text-sm text-slate-400">
+                Tax Year {{ $return->tax_year }} • 
+                Filed {{ $return->filing_date ? $return->filing_date->format('d M Y') : 'Not filed' }}
+            </p>
         </div>
         <div class="flex gap-3">
             @if($return->status === 'DRAFT')
+            {{-- Edit button temporarily disabled until route is created --}}
+            {{--
             <a href="{{ route('modules.tax.income.edit', $return) }}" 
                class="px-4 py-2 bg-white/10 hover:bg-white/15 ring-1 ring-white/10 rounded-lg transition-colors">
                 Edit Return
             </a>
+            --}}
             <form method="POST" action="{{ route('modules.tax.income.submit', $return) }}" class="inline">
                 @csrf
                 <button type="submit" 
@@ -48,7 +54,9 @@
             @if($return->status === 'DRAFT')
             <span class="text-xs opacity-80">This return has not been submitted to ZIMRA yet</span>
             @elseif($return->status === 'SUBMITTED')
-            <span class="text-xs opacity-80">Submitted on {{ $return->submitted_at?->format('d M Y H:i') }}</span>
+            <span class="text-xs opacity-80">
+                Submitted on {{ $return->submitted_at ? $return->submitted_at->format('d M Y H:i') : 'Unknown date' }}
+            </span>
             @endif
         </div>
     </div>
@@ -69,7 +77,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-slate-400">Filing Date</span>
-                        <span class="text-white">{{ $return->filing_date->format('d/m/Y') }}</span>
+                        <span class="text-white">{{ $return->filing_date ? $return->filing_date->format('d/m/Y') : 'Not set' }}</span>
                     </div>
                     <div class="border-t border-white/10 my-3"></div>
                     <div class="flex justify-between">
@@ -78,7 +86,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-slate-400">Tax Rate</span>
-                        <span class="text-white">{{ $return->tax_rate }}%</span>
+                        <span class="text-white">{{ $return->tax_rate * 100 }}%</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-slate-400">Income Tax</span>
@@ -100,7 +108,8 @@
                     <div class="flex justify-between">
                         <span class="text-slate-400">Balance Due</span>
                         <span class="{{ $return->balance_due > 0 ? 'text-amber-400' : 'text-emerald-400' }} font-bold">
-                            ${{ number_format($return->balance_due, 2) }}
+                            ${{ number_format(abs($return->balance_due), 2) }}
+                            <span class="text-xs ml-1">{{ $return->balance_due > 0 ? '(Payable)' : ($return->balance_due < 0 ? '(Refundable)' : '') }}</span>
                         </span>
                     </div>
                 </div>
@@ -136,13 +145,17 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/10">
-                            @foreach($return->metadata['income_breakdown'] ?? [] as $item)
+                            @forelse($return->metadata['income_breakdown'] ?? [] as $item)
                             <tr>
                                 <td class="px-3 py-2 font-mono">{{ $item['code'] }}</td>
                                 <td class="px-3 py-2">{{ $item['name'] }}</td>
                                 <td class="px-3 py-2 text-right">${{ number_format($item['amount'], 2) }}</td>
                             </tr>
-                            @endforeach
+                            @empty
+                            <tr>
+                                <td colspan="3" class="px-3 py-4 text-center text-slate-500">No income breakdown available</td>
+                            </tr>
+                            @endforelse
                             <tr class="bg-white/5 font-semibold">
                                 <td colspan="2" class="px-3 py-2 text-right">Total Income</td>
                                 <td class="px-3 py-2 text-right">${{ number_format($return->total_income, 2) }}</td>
@@ -167,15 +180,19 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/10">
-                            @foreach($return->metadata['expense_breakdown'] ?? [] as $item)
+                            @forelse($return->metadata['expense_breakdown'] ?? [] as $item)
                             <tr>
                                 <td class="px-3 py-2 font-mono">{{ $item['code'] }}</td>
                                 <td class="px-3 py-2">{{ $item['name'] }}</td>
                                 <td class="px-3 py-2 text-right">${{ number_format($item['amount'], 2) }}</td>
-                                <td class="px-3 py-2 text-right">{{ $item['deductible_percent'] }}%</td>
-                                <td class="px-3 py-2 text-right">${{ number_format($item['deductible'], 2) }}</td>
+                                <td class="px-3 py-2 text-right">{{ $item['deductible_percent'] ?? 100 }}%</td>
+                                <td class="px-3 py-2 text-right">${{ number_format($item['deductible'] ?? $item['amount'], 2) }}</td>
                             </tr>
-                            @endforeach
+                            @empty
+                            <tr>
+                                <td colspan="5" class="px-3 py-4 text-center text-slate-500">No expense breakdown available</td>
+                            </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
@@ -201,7 +218,7 @@
                                 <td class="px-3 py-2 font-mono">{{ $item['code'] }}</td>
                                 <td class="px-3 py-2">{{ $item['name'] }}</td>
                                 <td class="px-3 py-2 text-right text-amber-400">${{ number_format($item['amount'], 2) }}</td>
-                                <td class="px-3 py-2 text-slate-300">{{ $item['reason'] }}</td>
+                                <td class="px-3 py-2 text-slate-300">{{ $item['reason'] ?? 'Non-deductible' }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -217,7 +234,26 @@
                 <p class="text-slate-300">{{ $return->metadata['notes'] }}</p>
             </div>
             @endif
+
+            {{-- Raw Notes Field (if exists) --}}
+            @if(!empty($return->notes))
+            <div class="bg-black/20 rounded-xl ring-1 ring-white/10 p-5">
+                <h3 class="text-sm font-semibold text-white mb-3">Additional Notes</h3>
+                <p class="text-slate-300">{{ $return->notes }}</p>
+            </div>
+            @endif
         </div>
+    </div>
+
+    {{-- Back Button --}}
+    <div class="mt-6 pt-4 border-t border-white/10">
+        <a href="{{ route('modules.tax.income.index') }}" 
+           class="inline-flex items-center text-slate-400 hover:text-white transition-colors">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Income Tax Returns
+        </a>
     </div>
 </div>
 @endsection

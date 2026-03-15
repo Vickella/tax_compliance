@@ -7,6 +7,7 @@ use App\Models\ChartOfAccount;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Numbers\NumberSeries;
+use App\Services\Accounting\JournalPostingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +21,7 @@ class JournalEntryController extends Controller
         $q = trim((string)$request->get('q', ''));
 
         $journals = JournalEntry::query()
+            ->with(['lines']) // Eager load lines for efficiency
             ->when($status, fn($x) => $x->where('status', $status))
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($qq) use ($q) {
@@ -44,57 +46,45 @@ class JournalEntryController extends Controller
             'status' => 'DRAFT',
         ]);
 
-        // IMPORTANT: no forCompany() — global scope already applies
         $accounts = ChartOfAccount::query()
+            ->where('company_id', company_id())
             ->where('is_active', 1)
             ->orderBy('code')
-            ->get(['id','code','name','type']);
+            ->get(['id', 'code', 'name', 'type']);
 
-        return view('modules.accounting.journals.create', compact('journal','accounts'));
+        return view('modules.accounting.journals.create', compact('journal', 'accounts'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'posting_date' => ['required','date'],
-            'memo' => ['nullable','string','max:255'],
-            'currency' => ['required','string','size:3'],
-            'exchange_rate' => ['required','numeric','min:0.00000001'],
-
-            'lines' => ['required','array','min:2'],
-            'lines.*.account_id' => ['required','integer'],
-            'lines.*.description' => ['nullable','string','max:255'],
-            'lines.*.debit' => ['nullable','numeric','min:0'],
-            'lines.*.credit' => ['nullable','numeric','min:0'],
+            'posting_date' => ['required', 'date'],
+            'memo' => ['nullable', 'string', 'max:255'],
+            'currency' => ['required', 'string', 'size:3'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.00000001'],
+            'lines' => ['required', 'array', 'min:2'],
+            'lines.*.account_id' => ['required', 'integer', 'exists:chart_of_accounts,id'],
+            'lines.*.description' => ['nullable', 'string', 'max:255'],
+            'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $companyId = company_id();
 
         return DB::transaction(function () use ($data, $companyId) {
-
-            $totalDebit = 0.0;
-            $totalCredit = 0.0;
-
-            foreach ($data['lines'] as $l) {
-                $d = (float)($l['debit'] ?? 0);
-                $c = (float)($l['credit'] ?? 0);
-                $totalDebit += $d;
-                $totalCredit += $c;
-            }
+            // Calculate totals
+            $totalDebit = collect($data['lines'])->sum('debit');
+            $totalCredit = collect($data['lines'])->sum('credit');
 
             if (round($totalDebit, 2) !== round($totalCredit, 2)) {
-                abort(422, 'Journal is not balanced. Total debit must equal total credit.');
+                return back()->withErrors(['lines' => 'Journal is not balanced. Total debit must equal total credit.'])
+                    ->withInput();
             }
 
-            // Validate accounts exist in this company (global scope)
-            $accountIds = collect($data['lines'])->pluck('account_id')->unique()->values();
-            $count = ChartOfAccount::query()->whereIn('id', $accountIds)->count();
-            if ($count !== $accountIds->count()) {
-                abort(422, 'One or more accounts are invalid.');
-            }
-
+            // Generate entry number
             $entryNo = NumberSeries::next('JE', $companyId, 'journal_entries', 'entry_no');
 
+            // Create journal entry
             $journal = JournalEntry::create([
                 'company_id' => $companyId,
                 'entry_no' => $entryNo,
@@ -106,73 +96,77 @@ class JournalEntryController extends Controller
                 'created_by' => auth()->id(),
             ]);
 
-            foreach ($data['lines'] as $l) {
+            // Create journal lines
+            foreach ($data['lines'] as $line) {
                 JournalLine::create([
                     'journal_entry_id' => $journal->id,
-                    'account_id' => $l['account_id'],
-                    'description' => $l['description'] ?? null,
-                    'debit' => (float)($l['debit'] ?? 0),
-                    'credit' => (float)($l['credit'] ?? 0),
+                    'account_id' => $line['account_id'],
+                    'description' => $line['description'] ?? null,
+                    'debit' => (float)($line['debit'] ?? 0),
+                    'credit' => (float)($line['credit'] ?? 0),
                     'party_type' => 'NONE',
                     'party_id' => null,
                 ]);
             }
 
-            return redirect()->route('modules.accounting.journals.show', $journal)->with('ok','Journal saved (Draft).');
+            return redirect()->route('modules.accounting.journals.show', $journal)
+                ->with('success', 'Journal saved as Draft.');
         });
     }
 
     public function show(JournalEntry $journal)
     {
+        abort_unless($journal->company_id === company_id(), 403);
+        
         $journal->load(['lines.account']);
+        
         return view('modules.accounting.journals.show', compact('journal'));
     }
 
     public function edit(JournalEntry $journal)
     {
+        abort_unless($journal->company_id === company_id(), 403);
         abort_if($journal->status !== 'DRAFT', 403, 'Only DRAFT journals can be edited.');
 
         $journal->load('lines');
 
         $accounts = ChartOfAccount::query()
+            ->where('company_id', company_id())
             ->where('is_active', 1)
             ->orderBy('code')
-            ->get(['id','code','name','type']);
+            ->get(['id', 'code', 'name', 'type']);
 
-        return view('modules.accounting.journals.edit', compact('journal','accounts'));
+        return view('modules.accounting.journals.edit', compact('journal', 'accounts'));
     }
 
     public function update(Request $request, JournalEntry $journal)
     {
+        abort_unless($journal->company_id === company_id(), 403);
         abort_if($journal->status !== 'DRAFT', 403, 'Only DRAFT journals can be updated.');
 
         $data = $request->validate([
-            'posting_date' => ['required','date'],
-            'memo' => ['nullable','string','max:255'],
-            'currency' => ['required','string','size:3'],
-            'exchange_rate' => ['required','numeric','min:0.00000001'],
-
-            'lines' => ['required','array','min:2'],
-            'lines.*.account_id' => ['required','integer'],
-            'lines.*.description' => ['nullable','string','max:255'],
-            'lines.*.debit' => ['nullable','numeric','min:0'],
-            'lines.*.credit' => ['nullable','numeric','min:0'],
+            'posting_date' => ['required', 'date'],
+            'memo' => ['nullable', 'string', 'max:255'],
+            'currency' => ['required', 'string', 'size:3'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.00000001'],
+            'lines' => ['required', 'array', 'min:2'],
+            'lines.*.account_id' => ['required', 'integer', 'exists:chart_of_accounts,id'],
+            'lines.*.description' => ['nullable', 'string', 'max:255'],
+            'lines.*.debit' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.credit' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         return DB::transaction(function () use ($data, $journal) {
-
-            $totalDebit = 0.0;
-            $totalCredit = 0.0;
-
-            foreach ($data['lines'] as $l) {
-                $totalDebit += (float)($l['debit'] ?? 0);
-                $totalCredit += (float)($l['credit'] ?? 0);
-            }
+            // Calculate totals
+            $totalDebit = collect($data['lines'])->sum('debit');
+            $totalCredit = collect($data['lines'])->sum('credit');
 
             if (round($totalDebit, 2) !== round($totalCredit, 2)) {
-                abort(422, 'Journal is not balanced.');
+                return back()->withErrors(['lines' => 'Journal is not balanced. Total debit must equal total credit.'])
+                    ->withInput();
             }
 
+            // Update journal header
             $journal->update([
                 'posting_date' => $data['posting_date'],
                 'memo' => $data['memo'] ?? null,
@@ -180,99 +174,131 @@ class JournalEntryController extends Controller
                 'exchange_rate' => $data['exchange_rate'],
             ]);
 
-            JournalLine::query()->where('journal_entry_id', $journal->id)->delete();
+            // Delete old lines
+            JournalLine::where('journal_entry_id', $journal->id)->delete();
 
-            foreach ($data['lines'] as $l) {
+            // Create new lines
+            foreach ($data['lines'] as $line) {
                 JournalLine::create([
                     'journal_entry_id' => $journal->id,
-                    'account_id' => $l['account_id'],
-                    'description' => $l['description'] ?? null,
-                    'debit' => (float)($l['debit'] ?? 0),
-                    'credit' => (float)($l['credit'] ?? 0),
+                    'account_id' => $line['account_id'],
+                    'description' => $line['description'] ?? null,
+                    'debit' => (float)($line['debit'] ?? 0),
+                    'credit' => (float)($line['credit'] ?? 0),
                     'party_type' => 'NONE',
                     'party_id' => null,
                 ]);
             }
 
-            return redirect()->route('modules.accounting.journals.show', $journal)->with('ok','Journal updated.');
+            return redirect()->route('modules.accounting.journals.show', $journal)
+                ->with('success', 'Journal updated.');
         });
     }
 
-    public function post(\App\Models\JournalEntry $journal)
-{
-    // Safety: only allow posting draft
-    if (in_array($journal->status, ['POSTED', 'CANCELLED'], true)) {
-        return back()->with('error', 'This journal cannot be posted (current status: '.$journal->status.').');
-    }
+    /**
+     * Post a journal entry to GL
+     */
+    public function post(JournalEntry $journal)
+    {
+        abort_unless($journal->company_id === company_id(), 403);
 
-    // Make sure we have lines
-    $lines = $journal->lines()->get();
-    if ($lines->isEmpty()) {
-        return back()->with('error', 'Cannot post: journal has no lines.');
-    }
-
-    // Validate required fields in header (add more if needed)
-    if (empty($journal->posting_date) || empty($journal->currency) || empty($journal->exchange_rate)) {
-        return back()->with('error', 'Cannot post: missing required journal header fields.');
-    }
-
-    // Validate each line has an account and at least one of debit/credit > 0
-    foreach ($lines as $i => $line) {
-        if (empty($line->account_id)) {
-            return back()->with('error', 'Line '.($i + 1).' is missing an account.');
+        // Check if journal can be posted
+        if ($journal->status !== 'DRAFT') {
+            return back()->with('error', 'This journal cannot be posted (current status: ' . $journal->status . ').');
         }
 
-        $debit = (float) ($line->debit ?? 0);
-        $credit = (float) ($line->credit ?? 0);
-
-        if ($debit <= 0 && $credit <= 0) {
-            return back()->with('error', 'Line '.($i + 1).' must have a debit or credit amount.');
+        // Make sure we have lines
+        $lines = $journal->lines;
+        if ($lines->isEmpty()) {
+            return back()->with('error', 'Cannot post: journal has no lines.');
         }
 
-        // Optional: prevent both debit and credit on same line
-        if ($debit > 0 && $credit > 0) {
-            return back()->with('error', 'Line '.($i + 1).' cannot have both debit and credit.');
+        try {
+            // Use JournalPostingService to create GL entries
+            $postingService = app(JournalPostingService::class);
+            $postingService->postJournalEntry($journal, auth()->id());
+
+            return redirect()
+                ->route('modules.accounting.journals.show', $journal)
+                ->with('success', 'Journal posted successfully. GL entries created.');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to post journal: ' . $e->getMessage());
         }
     }
 
-    // Balance check
-    $totalDebit  = round((float) $lines->sum(fn ($l) => (float) ($l->debit ?? 0)), 2);
-    $totalCredit = round((float) $lines->sum(fn ($l) => (float) ($l->credit ?? 0)), 2);
-
-    if ($totalDebit <= 0 || $totalCredit <= 0) {
-        return back()->with('error', 'Cannot post: total debit and credit must be greater than zero.');
-    }
-
-    if (abs($totalDebit - $totalCredit) > 0.01) {
-        return back()->with('error', "Cannot post: debits ($totalDebit) do not match credits ($totalCredit).");
-    }
-
-    DB::transaction(function () use ($journal) {
-        $journal->status = 'POSTED';
-        $journal->posted_by = Auth::id();
-        $journal->posted_at = Carbon::now();
-        $journal->save();
-
-        // If later you implement GL posting, you can create ledger rows here.
-        // For now, posting = locking the journal as POSTED.
-    });
-
-    return redirect()
-        ->route('modules.accounting.journals.show', $journal)
-        ->with('success', 'Journal posted successfully.');
-}
-
+    /**
+     * Reverse a posted journal entry
+     */
     public function reverse(JournalEntry $journal)
     {
-        abort(501, 'Reverse not implemented yet in this snippet.');
+        abort_unless($journal->company_id === company_id(), 403);
+        
+        if ($journal->status !== 'POSTED') {
+            return back()->with('error', 'Only POSTED journals can be reversed.');
+        }
+
+        try {
+            DB::transaction(function () use ($journal) {
+                // Create reversal entry
+                $reversalNo = NumberSeries::next('REV', $journal->company_id, 'journal_entries', 'entry_no');
+                
+                $reversal = JournalEntry::create([
+                    'company_id' => $journal->company_id,
+                    'entry_no' => $reversalNo,
+                    'posting_date' => now()->toDateString(),
+                    'memo' => 'Reversal of ' . $journal->entry_no . ': ' . $journal->memo,
+                    'status' => 'DRAFT',
+                    'currency' => $journal->currency,
+                    'exchange_rate' => $journal->exchange_rate,
+                    'created_by' => auth()->id(),
+                ]);
+
+                // Create reversed lines (swap debits and credits)
+                foreach ($journal->lines as $line) {
+                    JournalLine::create([
+                        'journal_entry_id' => $reversal->id,
+                        'account_id' => $line->account_id,
+                        'description' => 'Reversal: ' . ($line->description ?? ''),
+                        'debit' => $line->credit,
+                        'credit' => $line->debit,
+                        'party_type' => $line->party_type,
+                        'party_id' => $line->party_id,
+                    ]);
+                }
+
+                // Post the reversal
+                $postingService = app(JournalPostingService::class);
+                $postingService->postJournalEntry($reversal, auth()->id());
+
+                // Mark original as reversed
+                $journal->update([
+                    'status' => 'REVERSED',
+                    'reversal_id' => $reversal->id,
+                ]);
+            });
+
+            return redirect()
+                ->route('modules.accounting.journals.show', $journal)
+                ->with('success', 'Journal reversed successfully.');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to reverse journal: ' . $e->getMessage());
+        }
     }
 
+    /**
+     * Cancel a draft journal
+     */
     public function cancel(JournalEntry $journal)
     {
+        abort_unless($journal->company_id === company_id(), 403);
         abort_if($journal->status !== 'DRAFT', 403, 'Only DRAFT journals can be cancelled.');
-        $journal->status = 'CANCELLED';
-        $journal->save();
 
-        return back()->with('ok','Journal cancelled.');
+        $journal->update(['status' => 'CANCELLED']);
+
+        return redirect()
+            ->route('modules.accounting.journals.index')
+            ->with('success', 'Journal cancelled.');
     }
 }
