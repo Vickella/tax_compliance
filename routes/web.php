@@ -118,38 +118,41 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['company'])
         ->group(function () {
 
-                    // Company Profile
-                    Route::get('company', [CompanyProfileController::class, 'edit'])->name('company.edit');
-                    Route::put('company', [CompanyProfileController::class, 'update'])->name('company.update');
+                    // Company Settings Group
+                    Route::prefix('company-settings')->name('company-settings.')->group(function () {
+                        // Company Profile
+                        Route::get('company', [CompanyProfileController::class, 'edit'])->name('company.edit');
+                        Route::put('company', [CompanyProfileController::class, 'update'])->name('company.update');
 
-                    // Currencies
-                    Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
-                    Route::post('currencies', [CurrencyController::class, 'store'])->name('currencies.store');
-                    Route::put('currencies/{code}', [CurrencyController::class, 'update'])->name('currencies.update');
+                        // Currencies
+                        Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+                        Route::post('currencies', [CurrencyController::class, 'store'])->name('currencies.store');
+                        Route::put('currencies/{code}', [CurrencyController::class, 'update'])->name('currencies.update');
 
-                    // Exchange Rates
-                    Route::get('exchange-rates', [ExchangeRateController::class, 'index'])->name('exchange-rates.index');
-                    Route::post('exchange-rates', [ExchangeRateController::class, 'store'])->name('exchange-rates.store');
-                    Route::delete('exchange-rates/{id}', [ExchangeRateController::class, 'destroy'])->name('exchange-rates.destroy');
+                        // Exchange Rates
+                        Route::get('exchange-rates', [ExchangeRateController::class, 'index'])->name('exchange-rates.index');
+                        Route::post('exchange-rates', [ExchangeRateController::class, 'store'])->name('exchange-rates.store');
+                        Route::delete('exchange-rates/{id}', [ExchangeRateController::class, 'destroy'])->name('exchange-rates.destroy');
 
-                    // Fiscal Periods
-                    Route::get('fiscal-periods', [FiscalPeriodController::class, 'index'])->name('fiscal-periods.index');
-                    Route::post('fiscal-periods', [FiscalPeriodController::class, 'store'])->name('fiscal-periods.store');
-                    Route::post('fiscal-periods/{id}/close', [FiscalPeriodController::class, 'close'])->name('fiscal-periods.close');
+                        // Fiscal Periods
+                        Route::get('fiscal-periods', [FiscalPeriodController::class, 'index'])->name('fiscal-periods.index');
+                        Route::post('fiscal-periods', [FiscalPeriodController::class, 'store'])->name('fiscal-periods.store');
+                        Route::post('fiscal-periods/{id}/close', [FiscalPeriodController::class, 'close'])->name('fiscal-periods.close');
 
-                    // Tax Rates
-                    Route::get('tax-rates', [TaxRateController::class, 'index'])->name('tax-rates.index');
-                    Route::post('tax-rates', [TaxRateController::class, 'store'])->name('tax-rates.store');
-                    Route::put('tax-rates/{id}', [TaxRateController::class, 'update'])->name('tax-rates.update');
+                        // Tax Rates
+                        Route::get('tax-rates', [TaxRateController::class, 'index'])->name('tax-rates.index');
+                        Route::post('tax-rates', [TaxRateController::class, 'store'])->name('tax-rates.store');
+                        Route::put('tax-rates/{id}', [TaxRateController::class, 'update'])->name('tax-rates.update');
 
-                    // Payroll Statutory
-                    Route::get('payroll-statutory', [PayrollStatutorySettingController::class, 'index'])->name('payroll-statutory.index');
-                    Route::post('payroll-statutory', [PayrollStatutorySettingController::class, 'store'])->name('payroll-statutory.store');
+                        // Payroll Statutory
+                        Route::get('payroll-statutory', [PayrollStatutorySettingController::class, 'index'])->name('payroll-statutory.index');
+                        Route::post('payroll-statutory', [PayrollStatutorySettingController::class, 'store'])->name('payroll-statutory.store');
 
-                    // PAYE Brackets
-                    Route::get('paye-brackets', [PayeBracketController::class, 'index'])->name('paye-brackets.index');
-                    Route::post('paye-brackets', [PayeBracketController::class, 'store'])->name('paye-brackets.store');
-                    Route::delete('paye-brackets/{id}', [PayeBracketController::class, 'destroy'])->name('paye-brackets.destroy');
+                        // PAYE Brackets
+                        Route::get('paye-brackets', [PayeBracketController::class, 'index'])->name('paye-brackets.index');
+                        Route::post('paye-brackets', [PayeBracketController::class, 'store'])->name('paye-brackets.store');
+                        Route::delete('paye-brackets/{id}', [PayeBracketController::class, 'destroy'])->name('paye-brackets.destroy');
+                    });
 
             /*
             |--------------------------------------------------------------------------
