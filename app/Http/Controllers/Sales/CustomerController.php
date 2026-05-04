@@ -52,6 +52,6 @@ class CustomerController extends Controller
 
         $customer->update($data);
 
-        return redirect()->route('sales.customers.index')->with('ok','Customer updated.');
+        return redirect()->route('modules.sales.customers.index')->with('ok','Customer updated.');
     }
 }

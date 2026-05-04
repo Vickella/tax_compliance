@@ -150,7 +150,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::get('paye-brackets', [PayeBracketController::class, 'index'])->name('paye-brackets.index');
                     Route::post('paye-brackets', [PayeBracketController::class, 'store'])->name('paye-brackets.store');
                     Route::delete('paye-brackets/{id}', [PayeBracketController::class, 'destroy'])->name('paye-brackets.destroy');
-                });
 
             /*
             |--------------------------------------------------------------------------
@@ -393,21 +392,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             | Generic module section routes (used by sidebar/dashboard)
             |--------------------------------------------------------------------------
             */
-            Route::get('{module}/masters', [ModuleController::class, 'section'])
-                ->defaults('section', 'masters')
-                ->name('masters');
-
-            Route::get('{module}/transactions', [ModuleController::class, 'section'])
-                ->defaults('section', 'transactions')
-                ->name('transactions');
-
-            Route::get('{module}/reports', [ModuleController::class, 'section'])
-                ->defaults('section', 'reports')
-                ->name('reports');
-
-            Route::get('{module}/settings', [ModuleController::class, 'section'])
-                ->defaults('section', 'settings')
-                ->name('settings');
+            Route::get('{module}/{section}', [ModuleController::class, 'section'])
+                ->name('section');
 
             /*
             |--------------------------------------------------------------------------
@@ -417,6 +403,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{module}', [ModuleController::class, 'index'])->name('index');
             Route::get('{module}/{section}/{page}', [ModuleController::class, 'page'])->name('page');
         });
+
+    });
 
 /*
 |--------------------------------------------------------------------------

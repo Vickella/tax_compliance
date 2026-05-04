@@ -9,14 +9,13 @@ class DashboardController extends Controller
         $modules = self::modules();
 
         $shortcuts = [
-            ['label' => 'Sales Invoice',     'icon' => '🧾', 'route' => route('sales.transactions')],
-            ['label' => 'Purchase Invoice',  'icon' => '📥', 'route' => route('purchases.transactions')],
-            ['label' => 'Items',             'icon' => '📦', 'route' => route('inventory.masters')],
-            ['label' => 'Customers',         'icon' => '👤', 'route' => route('sales.masters')],
-            ['label' => 'Suppliers',         'icon' => '🏭', 'route' => route('purchases.masters')],
-            ['label' => 'Journal Entry',     'icon' => '📚', 'route' => route('accounting.transactions')],
-            ['label' => 'Payroll Run',       'icon' => '👥', 'route' => route('payroll.transactions')],
-           
+            ['label' => 'Sales Invoice',     'icon' => '🧾', 'route' => route('modules.sales.invoices.index')],
+            ['label' => 'Purchase Invoice',  'icon' => '📥', 'route' => route('modules.purchases.invoices.index')],
+            ['label' => 'Items',             'icon' => '📦', 'route' => route('modules.inventory.items.index')],
+            ['label' => 'Customers',         'icon' => '👤', 'route' => route('modules.sales.customers.index')],
+            ['label' => 'Suppliers',         'icon' => '🏭', 'route' => route('modules.purchases.suppliers.index')],
+            ['label' => 'Journal Entry',     'icon' => '📚', 'route' => route('modules.accounting.journals.index')],
+            ['label' => 'Payroll Run',       'icon' => '👥', 'route' => route('modules.payroll.runs.index')],
         ];
 
         $cards = [
