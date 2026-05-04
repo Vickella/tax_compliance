@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'ZimTax'),
+    'name' => env('APP_NAME', 'Automated Tax Filing System'),
 
     /*
     |--------------------------------------------------------------------------

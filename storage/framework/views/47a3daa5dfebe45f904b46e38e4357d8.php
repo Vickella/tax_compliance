@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?php echo e(config('app.name', 'ZimTax ERP')); ?></title>
+    <title><?php echo e(config('app.name', 'Automated Tax Filing System')); ?></title>
 
     <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.js']); ?>
 
@@ -122,10 +122,10 @@
             
             
             <div class="px-4 py-5 border-b border-white/10 flex items-center gap-3 flex-shrink-0">
-                <div class="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">L</div>
+                <div class="h-8 w-8 rounded-lg bg-green-600 flex items-center justify-center text-white font-bold">AT</div>
                 <div>
-                    <div class="font-semibold text-white text-sm">ZimTax Compliance</div>
-                    <div class="text-xs text-slate-400">Compliance & Statutory</div>
+                    <div class="font-semibold text-white text-sm">ATFS</div>
+                    <div class="text-xs text-slate-400">Tax Filing & Compliance</div>
                 </div>
             </div>
             
@@ -136,53 +136,81 @@
                     
                     <button onclick="window.location='<?php echo e(route('dashboard')); ?>'" 
                             class="module-btn <?php echo e(request()->routeIs('dashboard') ? 'active' : ''); ?>">
-                        Home
+                        🏠 Home
                     </button>
                     
                     
-                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">MODULES</div>
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">Tax Filing</div>
+                    
+                    
+                    <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'payroll'])); ?>'" 
+                            class="module-btn <?php echo e(request()->is('m/payroll*') ? 'active' : ''); ?>">
+                        💰 PAYE
+                    </button>
+                    
+                    
+                    <button onclick="window.location='<?php echo e(route('modules.tax.vat.index')); ?>'" 
+                            class="module-btn <?php echo e(request()->is('m/tax/vat*') ? 'active' : ''); ?>">
+                        📊 VAT
+                    </button>
+                    
+                    
+                    <button onclick="window.location='<?php echo e(route('modules.tax.income.index')); ?>'" 
+                            class="module-btn <?php echo e(request()->is('m/tax/income*') ? 'active' : ''); ?>">
+                        🏢 Income Tax
+                    </button>
+                    
+                    
+                    <button onclick="window.location='<?php echo e(route('modules.tax.qpd.index')); ?>'" 
+                            class="module-btn <?php echo e(request()->is('m/tax/qpd*') ? 'active' : ''); ?>">
+                        📋 Quarterly Payments
+                    </button>
+
+                    
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">Settings</div>
                     
                     
                     <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'company-settings'])); ?>'" 
                             class="module-btn <?php echo e(request()->is('m/company-settings*') ? 'active' : ''); ?>">
-                        Company Settings
-                    </button>
-                    
-                    <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'sales'])); ?>'" 
-                            class="module-btn <?php echo e(request()->is('m/sales*') ? 'active' : ''); ?>">
-                        Sales
-                    </button>
-                    
-                    <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'purchases'])); ?>'" 
-                            class="module-btn <?php echo e(request()->is('m/purchases*') ? 'active' : ''); ?>">
-                        Purchases
-                    </button>
-                    
-                    <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'inventory'])); ?>'" 
-                            class="module-btn <?php echo e(request()->is('m/inventory*') ? 'active' : ''); ?>">
-                        Inventory
-                    </button>
-                    
-                    <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'accounting'])); ?>'" 
-                            class="module-btn <?php echo e(request()->is('m/accounting*') ? 'active' : ''); ?>">
-                        Accounting
-                    </button>
-                    
-                    <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'payroll'])); ?>'" 
-                            class="module-btn <?php echo e(request()->is('m/payroll*') ? 'active' : ''); ?>">
-                        Payroll
-                    </button>
-                    
-                    <button onclick="window.location='<?php echo e(route('modules.index', ['module' => 'tax'])); ?>'" 
-                            class="module-btn <?php echo e(request()->is('m/tax*') ? 'active' : ''); ?>">
-                        Tax
+                        ⚙️ Company Settings
                     </button>
 
+                    
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">Transactions</div>
+                    
+                    
+                    <div class="relative group">
+                        <button class="module-btn w-full flex items-center justify-between">
+                            <span>📑 Transactions</span>
+                            <span class="text-xs">▼</span>
+                        </button>
+                        
+                        
+                        <div class="hidden group-hover:flex flex-col bg-black/40 border border-white/10 rounded mt-1 absolute left-0 right-0 z-10">
+                            <a href="<?php echo e(route('modules.index', ['module' => 'sales'])); ?>" 
+                               class="px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+                                Sales
+                            </a>
+                            <a href="<?php echo e(route('modules.index', ['module' => 'purchases'])); ?>" 
+                               class="px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+                                Purchases
+                            </a>
+                            <a href="<?php echo e(route('modules.index', ['module' => 'accounting'])); ?>" 
+                               class="px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+                                Accounting
+                            </a>
+                            <a href="<?php echo e(route('modules.index', ['module' => 'inventory'])); ?>" 
+                               class="px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
+                                Inventory
+                            </a>
+                        </div>
+                    </div>
+
                     <?php if(auth()->check() && auth()->user()->isAdmin()): ?>
-                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">ADMIN</div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 pt-4 pb-1">Admin</div>
                         <button onclick="window.location='<?php echo e(route('admin.users.index')); ?>'"
                                 class="module-btn <?php echo e(request()->routeIs('admin.users.*') ? 'active' : ''); ?>">
-                            User Access
+                            👥 Users
                         </button>
                     <?php endif; ?>
                 </nav>
@@ -191,7 +219,17 @@
             
             <div class="border-t border-white/10 p-4 bg-black/20 flex-shrink-0">
                 <div class="flex items-center justify-between">
-                    <div class="text-sm text-slate-300">Super Admin</div>
+                    <div class="text-sm text-slate-300">
+                        <?php echo e(auth()->user()->name ?? 'User'); ?>
+
+                        <div class="text-xs text-slate-400">
+                            <?php if(auth()->user()->isAdmin()): ?>
+                                Administrator
+                            <?php else: ?>
+                                Accountant
+                            <?php endif; ?>
+                        </div>
+                    </div>
                     <form method="POST" action="<?php echo e(route('logout')); ?>">
                         <?php echo csrf_field(); ?>
                         <button type="submit" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10">
@@ -215,7 +253,7 @@
             
             <footer class="bg-black/20 border-t border-white/10 flex-shrink-0 px-6 py-2 text-xs text-slate-400">
                 <div class="flex justify-between">
-                    <span>© 2026 ZimTax Compliance. All rights reserved.</span>
+                    <span>© 2026 Automated Tax Filing System. All rights reserved.</span>
                     <span>v1.0.0</span>
                 </div>
             </footer>

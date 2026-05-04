@@ -18,7 +18,7 @@ class CompanySettingsSeeder extends Seeder
         DB::table('companies')->updateOrInsert(
             ['code' => 'MAIN'],
             [
-                'name' => 'ZimTax Compliance',
+                'name' => 'Automated Tax Filing System',
                 'trading_name' => null,
                 'tin' => null,
                 'vat_number' => null,
