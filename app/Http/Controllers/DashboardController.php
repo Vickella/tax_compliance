@@ -9,13 +9,13 @@ class DashboardController extends Controller
         $modules = self::modules();
 
         $shortcuts = [
-            ['label' => 'Sales Invoice',     'icon' => '🧾', 'route' => route('modules.transactions', ['module' => 'sales'])],
-            ['label' => 'Purchase Invoice',  'icon' => '📥', 'route' => route('modules.transactions', ['module' => 'purchases'])],
-            ['label' => 'Items',             'icon' => '📦', 'route' => route('modules.masters', ['module' => 'stock-management'])],
-            ['label' => 'Customers',         'icon' => '👤', 'route' => route('modules.masters', ['module' => 'sales'])],
-            ['label' => 'Suppliers',         'icon' => '🏭', 'route' => route('modules.masters', ['module' => 'purchases'])],
-            ['label' => 'Journal Entry',     'icon' => '📚', 'route' => route('modules.transactions', ['module' => 'accounting'])],
-            ['label' => 'Payroll Run',       'icon' => '👥', 'route' => route('modules.transactions', ['module' => 'payroll'])],
+            ['label' => 'Sales Invoice',     'icon' => '🧾', 'route' => route('sales.transactions')],
+            ['label' => 'Purchase Invoice',  'icon' => '📥', 'route' => route('purchases.transactions')],
+            ['label' => 'Items',             'icon' => '📦', 'route' => route('inventory.masters')],
+            ['label' => 'Customers',         'icon' => '👤', 'route' => route('sales.masters')],
+            ['label' => 'Suppliers',         'icon' => '🏭', 'route' => route('purchases.masters')],
+            ['label' => 'Journal Entry',     'icon' => '📚', 'route' => route('accounting.transactions')],
+            ['label' => 'Payroll Run',       'icon' => '👥', 'route' => route('payroll.transactions')],
            
         ];
 

@@ -21,6 +21,10 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
+                $intended = session('url.intended');
+                if ($intended && $intended !== url('/login')) {
+                    return redirect($intended);
+                }
                 return redirect('/dashboard');
             }
         }
