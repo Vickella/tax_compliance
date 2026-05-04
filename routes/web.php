@@ -100,23 +100,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | ERP Modules (/m/*)
+    | TRANSACTIONS MODULE
     |--------------------------------------------------------------------------
     */
+    Route::prefix('transactions')
+        ->name('transactions.')
+        ->group(function () {
+            Route::get('/', [ModuleController::class, 'index'])->name('index');
+            Route::get('/{module}', [ModuleController::class, 'show'])->name('show');
+        });
+
+    // ERP Modules temporarily removed for debugging
     Route::prefix('m')
         ->name('modules.')
         ->middleware(['company'])
         ->group(function () {
-
-            /*
-            |--------------------------------------------------------------------------
-            | COMPANY SETTINGS
-            |--------------------------------------------------------------------------
-            */
-            Route::prefix('company-settings')
-                ->name('company-settings.')
-                ->middleware(['permission:settings.manage'])
-                ->group(function () {
 
                     // Company Profile
                     Route::get('company', [CompanyProfileController::class, 'edit'])->name('company.edit');
@@ -417,7 +415,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{module}', [ModuleController::class, 'index'])->name('index');
             Route::get('{module}/{section}/{page}', [ModuleController::class, 'page'])->name('page');
         });
-});
 
 /*
 |--------------------------------------------------------------------------
